@@ -9,7 +9,7 @@ Follow [these](https://docs.anaconda.com/anaconda/install/) steps to install the
 ```
 conda --version
 ```
-and see a similar output:
+And see a similar output:
 ```
 conda 24.9.2
 ```
@@ -26,4 +26,40 @@ The activate can be activated with:
 conda activate eeg-classification
 ```
 
-More Conda commands may be found [here](https://docs.conda.io/projects/conda/en/latest/user-guide/cheatsheet.html).
+More Conda commands may be found in the cheat sheet [here](https://docs.conda.io/projects/conda/en/latest/user-guide/cheatsheet.html).
+
+## GNU Octave Installation
+
+Many EEG datasets come in `.mat` files or other filetypes that require specific data processing software to open. While MATLAB can be used to process these files, GNU Octave provides a free, open-source solution to handle these files as well.
+
+Install GNU Octave for your operating system by downloading the correct installer for your operating system [here](https://octave.org/download).
+
+To verify that GNU Octave has successfully been installed, run the following:
+```
+octave --version
+```
+
+You should see an output similar to:
+```
+GNU Octave, version 8.4.0
+Copyright (C) 1993-2023 The Octave Project Developers.
+This is free software; see the source code for copying conditions.
+There is ABSOLUTELY NO WARRANTY; not even for MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.
+
+Octave was configured for "x86_64-pc-linux-gnu".
+
+Additional information about Octave is available at https://www.octave.org.
+
+Please contribute if you find this software useful.
+For more information, visit https://www.octave.org/get-involved.html
+
+Read https://www.octave.org/bugs.html to learn how to submit bug reports.
+```
+
+>Note - Windows users will likely need to add the GNU Octave `bin` directory to their path, for the `octave` command to be recognized from the terminal. The default installation location may vary: if Octave was installed system-wide, then `C:\Octave\Octave-<version>\mingw64\bin` would be a likely place to check.
+
+Octave scripts are `.m` files and may be run as follows:
+```
+octave script_name.m
+```
