@@ -59,7 +59,13 @@ Read https://www.octave.org/bugs.html to learn how to submit bug reports.
 
 >Note - Windows users will likely need to add the GNU Octave `bin` directory to their path, for the `octave` command to be recognized from the terminal. The default installation location may vary: if Octave was installed system-wide, then `C:\Octave\Octave-<version>\mingw64\bin` would be a likely place to check.
 
-Octave scripts are `.m` files and may be run as follows:
+To access EEG datasets saved in `.gdf` format, the `biosig` package can be installed in Octave, which provides the `sload(...)` function.
+To install, run (in Octave):
 ```
-octave script_name.m
+pkg install -forge biosig
+```
+
+After the package has installed, you can access its functions by loading it:
+```
+pkg load biosig
 ```

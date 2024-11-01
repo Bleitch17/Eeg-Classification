@@ -1,2 +1,5 @@
-dataset-*
-BCICIV*
+# Ignore saved data files
+*.zip
+*.gdf
+*.mat
+*.csv
