@@ -13,21 +13,29 @@ function gdf_to_csv(session_id)
     [s, h] = sload(strcat(session_id, '.gdf'));
     
     true_labels = load(strcat(session_id, '.mat'));
+    
+    % Index to keep track of the current true label
     true_label_idx = 1;
 
     % First 22 columns are EEG, last 3 are EOG
-    eeg_eog_data = s(:, 1:NUM_EEG_CHANNELS + NUM_EOG_CHANNELS);
+    eeg_eog_data = num2cell(s(:, 1:NUM_EEG_CHANNELS + NUM_EOG_CHANNELS));
 
-    num_events = uint64(length(EVENT_TYPES));
-    num_samples = uint64(h.NRec);
-
-    data_with_events = [eeg_eog_data, zeros(num_samples, num_events)];
+    % Add two extra columns: one for the event types and one for the event durations
+    % Note - it is possible for multiple events to map to the same sample, hence using cell arrays
+    empty_col = cell(size(eeg_eog_data, 1), 1);
+    for empty_col_idx = 1:size(empty_col, 1)
+        empty_col{empty_col_idx} = [];
+    end
+    
+    data_with_events = [eeg_eog_data, empty_col, empty_col];
 
     for event_idx = 1:length(h.EVENT.TYP)
         event_type = h.EVENT.TYP(event_idx);
 
         % If the event_type is the unknown cue, then need to find the corresponding true label
         if event_type == EVENT_TYPE_UNKNOWN_CUE
+            assert(true_label_idx <= TRIALS_PER_SESSION, 'Exceeded the number of expected trials in the session');
+            
             class_label = true_labels.classlabel(true_label_idx);
             
             % Class labels to events: https://www.bbci.de/competition/iv/desc_2a.pdf
@@ -46,35 +54,61 @@ function gdf_to_csv(session_id)
 
         event_pos = h.EVENT.POS(event_idx);
         event_dur = h.EVENT.DUR(event_idx);
-
-        % Expect event_type to be the decimal number representing the event
-        event_col_idx = find(EVENT_TYPES == event_type);
         
-        for j = 0:event_dur
-            if event_pos + j <= num_samples
-
-                % Note - events may have 0 duration
-                % Note - this assumes event_pos is 1-indexed
-                data_with_events(event_pos + j, NUM_EEG_CHANNELS + NUM_EOG_CHANNELS + event_col_idx) = event_type;
-            else
-                warning('Event position %d with duration %d exceeds the number of samples %d', event_pos, event_dur, num_samples);
-            end
-        end
+        % Store the event type and duration in the last two columns
+        data_with_events{event_pos, EVENT_TYPES_COL} = [data_with_events{event_pos, EVENT_TYPES_COL}, event_type];
+        data_with_events{event_pos, EVENT_DURATIONS_COL} = [data_with_events{event_pos, EVENT_DURATIONS_COL}, event_dur];
     end
 
     headers = [arrayfun(@(x) sprintf('EEG_%d', x), 1:NUM_EEG_CHANNELS, 'UniformOutput', false), ...
                arrayfun(@(x) sprintf('EOG_%d', x), 1:NUM_EOG_CHANNELS, 'UniformOutput', false), ...
-               arrayfun(@(x) sprintf('Event_%d', x), EVENT_TYPES, 'UniformOutput', false)];
+               'Event Types', 'Event Durations'];
 
     % Write the data to a CSV file
     csvwrite_with_headers(strcat(session_id, '.csv'), data_with_events, headers);
 end
 
 function csvwrite_with_headers(filename, data, headers)
+    constants;
+    
     fid = fopen(filename, 'w');
     fprintf(fid, '%s,', headers{1:end-1});
     fprintf(fid, '%s\n', headers{end});
-    fclose(fid);
+    
+    for row_idx = 1:size(data, 1)
+        % Write the EEG and EOG data
+        for col_idx = 1:NUM_EEG_CHANNELS + NUM_EOG_CHANNELS - 1
+            fprintf(fid, '%f,', data{row_idx, col_idx}(1));
+        end
+        fprintf(fid, '%f', data{row_idx, NUM_EEG_CHANNELS + NUM_EOG_CHANNELS}(1));
+        
+        num_events = length(data{row_idx, EVENT_TYPES_COL});
 
-    dlmwrite(filename, data, "-append");
+        if num_events == 0
+            for ignore = 1:2
+                fprintf(fid, ',');
+            end
+            fprintf(fid, '\n');
+
+        elseif num_events == 1
+            fprintf(fid, ',%d,%d\n', data{row_idx, EVENT_TYPES_COL}(1), data{row_idx, EVENT_DURATIONS_COL}(1));
+
+        else
+            fprintf(fid, ',');
+
+            for event_idx = 1:num_events - 1
+                fprintf(fid, '%d ', data{row_idx, EVENT_TYPES_COL}(event_idx));
+            end
+
+            fprintf(fid, '%d,', data{row_idx, EVENT_TYPES_COL}(end));
+
+            for event_idx = 1:num_events - 1
+                fprintf(fid, '%d ', data{row_idx, EVENT_DURATIONS_COL}(event_idx));
+            end
+
+            fprintf(fid, '%d\n', data{row_idx, EVENT_DURATIONS_COL}(end));
+        end
+    end
+
+    fclose(fid);
 end
