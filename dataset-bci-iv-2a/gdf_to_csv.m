@@ -14,22 +14,14 @@ function gdf_to_csv(session_id)
     
     % Expecting true_labels to hold [288 x 1] class labels
     true_labels = load(strcat(session_id, '.mat'));
-    
-    % Expecting artifacts to hold [288 x 1] booleans:
-    % 1 if the trial contains an artifact, 0 otherwise.
-    artifacts = h.ArtifactSelection;
 
     % Indexes to track current trial true labal, and current trial artifact status
     true_label_idx = 1;
-    artifact_idx = 1;
 
     % First 22 columns are EEG, last 3 are EOG
     eeg_eog_data = s(:, 1:NUM_EEG_CHANNELS + NUM_EOG_CHANNELS);
 
-    % Next column will be artifact status
-    artifact_status = zeros(size(eeg_eog_data, 1), 1);
-
-    % Next two columns will be event types and event durations
+    % Last two columns will be event types and event durations
     % Note - it is possible for multiple events to map to the same sample, hence using cell arrays
     event_types = cell(size(eeg_eog_data, 1), 1);
     for event_types_idx = 1:size(event_types, 1)
@@ -64,13 +56,6 @@ function gdf_to_csv(session_id)
             end
             
             true_label_idx = true_label_idx + 1;
-        
-        elseif event_type == EVENT_TYPE_TRIAL_START
-            assert(artifact_idx <= TRIALS_PER_SESSION, 'Artifact status select exceeded the number of expected trials in the session');
-            
-            % Since artifacts column starts with all 0's anyways, just set the value to the artifact status
-            artifact_status(event_pos) = artifacts(artifact_idx);
-            artifact_idx = artifact_idx + 1;
         end
 
         % Append the event type to the event types array at the event position
@@ -80,14 +65,14 @@ function gdf_to_csv(session_id)
         event_durations{event_pos} = [event_durations{event_pos}, event_dur];
     end
 
-    headers = [ELECTRODES, 'Artifact Status', 'Event Types', 'Event Durations'];
+    headers = [ELECTRODES, 'Event Types', 'Event Durations'];
 
     % Write the data to a CSV file
-    csvwrite_with_headers(strcat(session_id, '.csv'), headers, eeg_eog_data, artifact_status, event_types, event_durations);
+    csvwrite_with_headers(strcat(session_id, '.csv'), headers, eeg_eog_data, event_types, event_durations);
 end
 
 
-function csvwrite_with_headers(filename, headers, eeg_eog_data, artifact_status, event_types, event_durations)
+function csvwrite_with_headers(filename, headers, eeg_eog_data, event_types, event_durations)
     constants;
     
     fid = fopen(filename, 'w');
@@ -95,17 +80,16 @@ function csvwrite_with_headers(filename, headers, eeg_eog_data, artifact_status,
     fprintf(fid, '%s\n', headers{end});
     
     % All input matrices should have the same number of rows
-    assert(size(eeg_eog_data, 1) == size(artifact_status, 1), 'Number of rows in EEG/EOG data and artifact status do not match');
     assert(size(eeg_eog_data, 1) == size(event_types, 1), 'Number of rows in EEG/EOG data and event types do not match');
     assert(size(eeg_eog_data, 1) == size(event_durations, 1), 'Number of rows in EEG/EOG data and event durations do not match');
 
     for row_idx = 1:size(eeg_eog_data, 1)
         % Write the EEG and EOG data
-        for col_idx = 1:NUM_EEG_CHANNELS + NUM_EOG_CHANNELS
+        for col_idx = 1:NUM_EEG_CHANNELS + NUM_EOG_CHANNELS - 1
             fprintf(fid, '%f,', eeg_eog_data(row_idx, col_idx));
         end
 
-        fprintf(fid, '%d', artifact_status(row_idx));     
+        fprintf(fid, '%f', eeg_eog_data(row_idx, NUM_EEG_CHANNELS + NUM_EOG_CHANNELS));
 
         num_events = length(event_types{row_idx});
 

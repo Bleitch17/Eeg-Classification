@@ -11,9 +11,10 @@ COL_EVENT_DURATIONS: str = "Event Durations"
 
 # Name of the column in the label DataFrame
 LABEL_COL_NAME: str = "Label"
+ARTIFACT_COL_NAME: str = "Artifact"
 
-# 22 EEG columns, 3 EOG columns, and 1 artifact status column
-NUM_DATA_COLUMNS: int = 26
+# 22 EEG columns, 3 EOG columns
+NUM_DATA_COLUMNS: int = 25
 
 SAMPLE_RATE_HZ: int = 250
 
@@ -27,8 +28,8 @@ class BciIvCsvParser:
         self.csv_headers: list[str] = self.csv_file.readline().strip().split(CSV_DELIMITER)
         self.csv_header_index: dict[str, int] = {self.csv_headers[i]: i for i in range(len(self.csv_headers))}
         
-        # Column headers for the data container - NUM_DATA_COLUMNS data columns, and 1 label column
-        self.data_headers: list[str] = self.csv_headers[:NUM_DATA_COLUMNS] + [LABEL_COL_NAME]
+        # Column headers for the data container - NUM_DATA_COLUMNS data columns, 1 label column and 1 artifact status column
+        self.data_headers: list[str] = self.csv_headers[:NUM_DATA_COLUMNS] + [LABEL_COL_NAME, ARTIFACT_COL_NAME]
 
         self.data: dict[str, list[float]] = {header: [] for header in self.data_headers}
 
@@ -60,7 +61,13 @@ class BciIvCsvParser:
         for _ in range(n_rows):
             self.csv_file.readline()
     
-    def read_rows(self, n_rows: int, label: int) -> None:
+    def read_rows(self, n_rows: int, artifact_status: int, label: int) -> None:
+        if artifact_status not in {0, 1}:
+            raise ValueError("Artifact status must be 0 or 1")
+        
+        if label not in {0, 1, 2, 3, 4}:
+            raise ValueError("Label must be 0, 1, 2, 3, or 4")
+
         for _ in range(n_rows):
             line: str = self.csv_file.readline()
             
@@ -69,7 +76,7 @@ class BciIvCsvParser:
                 return
 
             line_segments: list[str] = line.strip().split(CSV_DELIMITER)
-            data_segments: list[float] = list(map(float, line_segments[:NUM_DATA_COLUMNS])) + [float(label)]
+            data_segments: list[float] = list(map(float, line_segments[:NUM_DATA_COLUMNS])) + [float(label), float(artifact_status)]
 
             if len(data_segments) != len(self.data_headers):
                 raise(ValueError(f"Expected {len(self.data_headers)} data columns, got {len(data_segments)}"))
@@ -78,6 +85,8 @@ class BciIvCsvParser:
                 self.data[header].append(measurement)
 
     def get_dataframe(self) -> pd.DataFrame:
+        current_artifact_status: int = 0
+        
         while line := self.csv_file.readline():
             if line == "\n":
                 # Hit last line(s) of the file
@@ -95,6 +104,11 @@ class BciIvCsvParser:
             if len(event_types) != len(event_durations):
                 raise ValueError("Event types and durations must have the same length")
 
+            # checking if the current trial was a rejected one
+            if 1023 in event_types:
+                current_artifact_status = 1
+                continue
+
             # Expect the relevant event type to be the last one in the list
             class_label: int = self.get_class_label(event_types[-1])
             
@@ -103,8 +117,8 @@ class BciIvCsvParser:
 
             if class_label == 0:
                 # Resting state EEG data - can just read rows normally
-                # Also need to capture the current row
-                data_segments: list[float] = list(map(float, line_segments[:NUM_DATA_COLUMNS])) + [float(class_label)]
+                # Also need to capture the current row, which should not have artifacts
+                data_segments: list[float] = list(map(float, line_segments[:NUM_DATA_COLUMNS])) + [float(class_label), 0.0]
                 
                 if len(data_segments) != len(self.data_headers):
                     raise(ValueError(f"Expected {len(self.data_headers)} data columns, got {len(data_segments)}"))
@@ -113,12 +127,16 @@ class BciIvCsvParser:
                     self.data[header].append(measurement)
                 
                 # Read the remaining rows into the data container
-                self.read_rows(duration, class_label)
+                self.read_rows(duration, 0, class_label)
 
             elif class_label > 0:
                 # Found a cue onset, so current row is t = 2s
                 # Skip 249 rows, so next read will be t = 3s
                 self.skip_rows(SAMPLE_RATE_HZ - 1)
-                self.read_rows(SAMPLE_RATE_HZ * 3, class_label)
+                self.read_rows(SAMPLE_RATE_HZ * 3, current_artifact_status, class_label)
+
+                # Flip the artifact status back to 0, if the current trial had an artifact
+                if current_artifact_status:
+                    current_artifact_status = 0
 
         return pd.DataFrame(self.data)
