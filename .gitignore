@@ -3,6 +3,8 @@
 *.gdf
 *.mat
 *.csv
+BCICIV_2a_gdf
+true_labels
 
 # Ignore pycache
 __pycache__
