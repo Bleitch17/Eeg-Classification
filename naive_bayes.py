@@ -176,6 +176,19 @@ def experiment_resting_vs_left_hand_c3(df: pd.DataFrame) -> tuple[AccuracyScore,
     return train_naive_bayes(X, y)
 
 
+def experiment_resting_vs_left_right_hand_2_channel(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
+
+    # Extract resting state and left/right hand data
+    criterion = df["Label"].map(lambda x: x == 0 or x == 1 or x == 2)
+    df = df[criterion]
+
+    # Separate data from labels
+    X = df[["C3", "C4"]]
+    y = df["Label"]
+
+    return train_naive_bayes(X, y)
+
+
 if __name__ == "__main__":
     bci_iv_parser_session_train: BciIvCsvParser = BciIvCsvParser(f"{BCI_COMP_DATASET_PATH}A01T.csv")
     bci_iv_parser_session_eval: BciIvCsvParser = BciIvCsvParser(f"{BCI_COMP_DATASET_PATH}A01E.csv")    
@@ -211,6 +224,7 @@ if __name__ == "__main__":
         ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
         ("Resting vs Left Hand C4", experiment_resting_vs_left_hand_c4),
         ("Resting vs Left Hand C3", experiment_resting_vs_left_hand_c3),
+        ("Resting vs Left Right Hand 2 Channel", experiment_resting_vs_left_right_hand_2_channel)
     ]
 
     for experiment_name, experiment_function in experiments:
