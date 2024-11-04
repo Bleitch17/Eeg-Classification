@@ -44,19 +44,6 @@ def train_naive_bayes(X: pd.DataFrame, y: pd.DataFrame) -> tuple[AccuracyScore, 
 
 
 def experiment_initial(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
-    """
-    Feed all 22 EEG channels into a Naive Bayes classifier, and attempt to classify 5 MI states:
-    0: Rest
-    1: Left Hand
-    2: Right Hand
-    3: Feet
-    4: Tongue
-    Prints the accuracy to the terminal.
-
-    :param df: The EEG data, with labels - expects all Artifacts to be removed and labels to be in a column called Label.
-
-    :return: A tuple containing the accuracy, confusion matrix and classification report.
-    """
 
     # Separate data from labels
     X = df.drop(columns=["Label"])
@@ -66,19 +53,6 @@ def experiment_initial(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix
 
 
 def experiment_no_rest(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
-    """
-    Feed all 22 EEG channels into a Naive Bayes classifier and remove the resting state.
-    Classify 4 MI states:
-    1: Left Hand
-    2: Right Hand
-    3: Feet
-    4: Tongue
-    Prints the accuracy to the terminal.
-
-    :param df: The EEG data, with labels - expects all Artifacts to be removed and labels to be in a column called Label.
-
-    :return: A tuple containing the accuracy, confusion matrix and classification report.
-    """
 
     # Remove the resting state
     df = df[df["Label"] != 0]
@@ -91,20 +65,6 @@ def experiment_no_rest(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix
 
 
 def experiment_5_channel(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
-    """
-    Feed 5 EEG channels into a Naive Bayes classifier.
-    Classify 5 MI states:
-    0: Rest
-    1: Left Hand
-    2: Right Hand
-    3: Feet
-    4: Tongue
-    Prints the accuracy to the terminal.
-
-    :param df: The EEG data, with labels - expects all Artifacts to be removed and labels to be in a column called Label.
-
-    :return: A tuple containing the accuracy, confusion matrix and classification report.
-    """
 
     # Separate data from labels
     X = df[["Fz", "C3", "Cz", "C4", "Pz"]]
@@ -114,19 +74,6 @@ def experiment_5_channel(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatr
 
 
 def experiment_5_channel_no_rest(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
-    """
-    Feed 5 EEG channels into a Naive Bayes classifier and remove the resting state.
-    Classify 4 MI states:
-    1: Left Hand
-    2: Right Hand
-    3: Feet
-    4: Tongue
-    Prints the accuracy to the terminal.
-
-    :param df: The EEG data, with labels - expects all Artifacts to be removed and labels to be in a column called Label.
-
-    :return: A tuple containing the accuracy, confusion matrix and classification report.
-    """
 
     # Remove the resting state
     df = df[df["Label"] != 0]
@@ -139,17 +86,6 @@ def experiment_5_channel_no_rest(df: pd.DataFrame) -> tuple[AccuracyScore, Confu
 
 
 def experiment_left_right_hand(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
-    """
-    Feed all 22 EEG channels into a Naive Bayes classifier and remove resetin state, feed, and tongue.
-    Classify 2 MI states:
-    1: Left Hand
-    2: Right Hand
-    Prints the accuracy to the terminal.
-
-    :param df: The EEG data, with labels - expects all Artifacts to be removed and labels to be in a column called Label.
-
-    :return: A tuple containing the accuracy, confusion matrix and classification report.
-    """
 
     # Extract left and right hand data
     criterion = df["Label"].map(lambda x: x == 1 or x == 2)
@@ -157,6 +93,84 @@ def experiment_left_right_hand(df: pd.DataFrame) -> tuple[AccuracyScore, Confusi
 
     # Separate data from labels
     X = df.drop(columns=["Label"])
+    y = df["Label"]
+
+    return train_naive_bayes(X, y)
+
+
+def experiment_left_right_hand_5_channel(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
+
+    # Extract left and right hand data
+    criterion = df["Label"].map(lambda x: x == 1 or x == 2)
+    df = df[criterion]
+
+    # Separate data from labels
+    X = df[["Fz", "C3", "Cz", "C4", "Pz"]]
+    y = df["Label"]
+
+    return train_naive_bayes(X, y)
+
+
+def experiment_left_right_hand_2_channel(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
+
+    # Extract left and right hand data
+    criterion = df["Label"].map(lambda x: x == 1 or x == 2)
+    df = df[criterion]
+
+    # Separate data from labels
+    X = df[["C3", "C4"]]
+    y = df["Label"]
+
+    return train_naive_bayes(X, y)
+
+
+def experiment_resting_vs_left_hand(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
+
+    # Extract resting state and left hand data
+    criterion = df["Label"].map(lambda x: x == 0 or x == 1)
+    df = df[criterion]
+
+    # Separate data from labels
+    X = df.drop(columns=["Label"])
+    y = df["Label"]
+
+    return train_naive_bayes(X, y)
+
+
+def experiment_resting_vs_left_hand_2_channel(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
+
+    # Extract resting state and left hand data
+    criterion = df["Label"].map(lambda x: x == 0 or x == 1)
+    df = df[criterion]
+
+    # Separate data from labels
+    X = df[["C3", "C4"]]
+    y = df["Label"]
+
+    return train_naive_bayes(X, y)
+
+
+def experiment_resting_vs_left_hand_c4(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
+    
+    # Extract resting state and left hand data
+    criterion = df["Label"].map(lambda x: x == 0 or x == 1)
+    df = df[criterion]
+
+    # Separate data from labels
+    X = df[["C4"]]
+    y = df["Label"]
+
+    return train_naive_bayes(X, y)
+
+
+def experiment_resting_vs_left_hand_c3(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
+    
+    # Extract resting state and left hand data
+    criterion = df["Label"].map(lambda x: x == 0 or x == 1)
+    df = df[criterion]
+
+    # Separate data from labels
+    X = df[["C3"]]
     y = df["Label"]
 
     return train_naive_bayes(X, y)
@@ -186,11 +200,17 @@ if __name__ == "__main__":
     df = df.dropna()
 
     experiments: list[tuple[str, Callable[[pd.DataFrame], tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]]]] = [
-        ("Initial", experiment_initial),
-        ("No Rest", experiment_no_rest),
-        ("5 Channel", experiment_5_channel),
-        ("5 Channel No Rest", experiment_5_channel_no_rest),
-        ("Left Right Hand", experiment_left_right_hand)
+        # ("Initial", experiment_initial),
+        # ("No Rest", experiment_no_rest),
+        # ("5 Channel", experiment_5_channel),
+        # ("5 Channel No Rest", experiment_5_channel_no_rest),
+        ("Left Right Hand", experiment_left_right_hand),
+        ("Left Right Hand 5 Channel", experiment_left_right_hand_5_channel),
+        ("Left Right Hand 2 Channel", experiment_left_right_hand_2_channel),
+        ("Resting vs Left Hand", experiment_resting_vs_left_hand),
+        ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
+        ("Resting vs Left Hand C4", experiment_resting_vs_left_hand_c4),
+        ("Resting vs Left Hand C3", experiment_resting_vs_left_hand_c3),
     ]
 
     for experiment_name, experiment_function in experiments:
