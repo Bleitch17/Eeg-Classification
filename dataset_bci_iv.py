@@ -33,6 +33,9 @@ class BciIvCsvParser:
 
         self.data: dict[str, list[float]] = {header: [] for header in self.data_headers}
 
+        # List with tuples of the form (class_label, number_of_samples, artifact_status). Will be used for creating windowed data.
+        self.durations: list[tuple[int, int, int]] = []
+
     def __del__(self):
         self.csv_file.close()
 
@@ -84,7 +87,7 @@ class BciIvCsvParser:
             for measurement, header in zip(data_segments, self.data_headers):
                 self.data[header].append(measurement)
 
-    def get_dataframe(self) -> pd.DataFrame:
+    def parse(self) -> None:
         current_artifact_status: int = 0
         
         while line := self.csv_file.readline():
@@ -126,6 +129,13 @@ class BciIvCsvParser:
                 for measurement, header in zip(data_segments, self.data_headers):
                     self.data[header].append(measurement)
                 
+                # Record number of samples for the current class label
+                # Note that since durations is how many more samples to read, the number of samples here will be durations + 1 to
+                # include the current row.
+                # Also note that these rows are not part of the motor imagery tasks, so the artifact status is always 0.
+                # However, they may still contain NaN values.
+                self.durations.append((class_label, duration + 1, 0))
+
                 # Read the remaining rows into the data container
                 self.read_rows(duration, 0, class_label)
 
@@ -135,8 +145,74 @@ class BciIvCsvParser:
                 self.skip_rows(SAMPLE_RATE_HZ - 1)
                 self.read_rows(SAMPLE_RATE_HZ * 3, current_artifact_status, class_label)
 
+                # Record number of samples for the current class label - will always be SAMPLE_RATE_HZ * 3
+                self.durations.append((class_label, SAMPLE_RATE_HZ * 3, current_artifact_status))
+
                 # Flip the artifact status back to 0, if the current trial had an artifact
                 if current_artifact_status:
                     current_artifact_status = 0
-
+    
+    def get_dataframe(self) -> pd.DataFrame:
+        """
+        Expects parse() to have been called first. Otherwise, returns an empty DataFrame.
+        """
+        
         return pd.DataFrame(self.data)
+
+    def get_windowed_dataframe(self, window_size: int, window_overlap: int) -> pd.DataFrame:
+        """
+        A window refers to a set of consecutive samples from the EEG data. This set of consectutive samples is
+        concatenated together to form a single row in the resulting DataFrame. The window size controls the number of
+        consecutive samples that make up one output row. The window overlap controls the number of samples shared
+        between two consecutive windows.
+
+        A window size of 1 and window_overlap of 0 is equivalent to calling get_dataframe().
+
+        Expects parse() to have been called first.
+        """
+
+        if window_size < 1:
+            raise ValueError("Window size must be at least 1")
+
+        if window_overlap < 0:
+            raise ValueError("Window overlap may not be negative")
+
+        if window_overlap >= window_size:
+            raise ValueError("Window overlap must be less than window size")
+
+        if window_size == 1:
+            return pd.DataFrame(self.data)
+
+        windowed_data_headers: list[str] = []
+
+        for i in range(window_size):
+            windowed_data_headers += [f"{header}_{i}" for header in self.data_headers[:NUM_DATA_COLUMNS]]
+        
+        windowed_data_headers += [LABEL_COL_NAME, ARTIFACT_COL_NAME]
+
+        windowed_data: dict[str, list[float]] = {header: [] for header in windowed_data_headers}
+
+        # Important: the windows must capture EEG data that was recorded sequentially. There is no overlap in the data
+        # recording between the resting state and the motor imagery tasks. There is also no overlap between the motor imagery
+        # tasks in different trials, since the measurements were taken from the t = 3s to t = 6s periods of each trial.
+
+        row_index: int = 0
+
+        # Loop over each collection of consecutive samples
+        for class_label, num_samples, artifact_status in self.durations:
+            
+            # Loop over each window in the collection of consecutive samples
+            for window_base_index in range(0, num_samples - window_size + 1, window_size - window_overlap):
+
+                # Loop over each sample in the window
+                for window_sample_index in range(window_size):
+                    for header in self.data_headers[:NUM_DATA_COLUMNS]:
+                        windowed_data[f"{header}_{window_sample_index}"].append(self.data[header][row_index + window_base_index + window_sample_index])
+
+                # Each window should have a single class label and single artifact status
+                windowed_data[LABEL_COL_NAME].append(class_label)
+                windowed_data[ARTIFACT_COL_NAME].append(artifact_status)
+
+            row_index += num_samples
+
+        return pd.DataFrame(windowed_data)
