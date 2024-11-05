@@ -189,6 +189,34 @@ def experiment_resting_vs_left_right_hand_2_channel(df: pd.DataFrame) -> tuple[A
     return train_naive_bayes(X, y)
 
 
+def experiment_resting_vs_all(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
+    
+    df = df.copy()
+
+    # Re-label all rows with labels greater than or equal to 1 to 1
+    df.loc[df["Label"] >= 1, "Label"] = 1
+
+    # Separate data from labels
+    X = df.drop(columns=["Label"])
+    y = df["Label"]
+
+    return train_naive_bayes(X, y)
+
+
+def experiment_resting_vs_all_single_channel(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
+
+    df = df.copy()
+
+    # Re-label all rows with labels greater than or equal to 1 to 1
+    df.loc[df["Label"] >= 1, "Label"] = 1
+
+    # Separate data from labels
+    X = df[["C3"]]
+    y = df["Label"]
+
+    return train_naive_bayes(X, y)
+
+
 def experiment_windowed_resting_vs_left_hand_c3(windowed_df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
         
     # Extract resting state and left hand data
@@ -196,7 +224,7 @@ def experiment_windowed_resting_vs_left_hand_c3(windowed_df: pd.DataFrame) -> tu
     windowed_df = windowed_df[criterion]
 
     # Separate data from labels
-    X = windowed_df[["C3_0", "C3_1", "C3_2", "C3_3", "C3_4"]]
+    X = windowed_df[[f"C3_{i}" for i in range(10)]]
     y = windowed_df["Label"]
 
     return train_naive_bayes(X, y)
@@ -228,35 +256,37 @@ if __name__ == "__main__":
     # There may still be some NaN values from the resting state recording, so remove those rows too.
     df = df.dropna()
 
-    windowed_df_train: pd.DataFrame = bci_iv_parser_session_train.get_windowed_dataframe(5, 3)
-    windowed_df_eval: pd.DataFrame = bci_iv_parser_session_eval.get_windowed_dataframe(5, 3)
+    # windowed_df_train: pd.DataFrame = bci_iv_parser_session_train.get_windowed_dataframe(10, 9)
+    # windowed_df_eval: pd.DataFrame = bci_iv_parser_session_eval.get_windowed_dataframe(10, 9)
 
-    windowed_df: pd.DataFrame = pd.concat([windowed_df_train, windowed_df_eval])
+    # windowed_df: pd.DataFrame = pd.concat([windowed_df_train, windowed_df_eval])
 
-    print(f"Windowed DataFrame shape:\n{windowed_df.shape}")
-    print(f"First few rows:\n{windowed_df.head()}")
-    print(f"Artifact rows:\n{windowed_df[windowed_df["Artifact"] == 1.0].shape[0]}")
+    # print(f"Windowed DataFrame shape:\n{windowed_df.shape}")
+    # print(f"First few rows:\n{windowed_df.head()}")
+    # print(f"Artifact rows:\n{windowed_df[windowed_df["Artifact"] == 1.0].shape[0]}")
 
     # Remove rejected trials
-    windowed_df = windowed_df[windowed_df["Artifact"] != 1.0]
-    windowed_df = windowed_df.drop(columns=["Artifact"])
+    # windowed_df = windowed_df[windowed_df["Artifact"] != 1.0]
+    # windowed_df = windowed_df.drop(columns=["Artifact"])
 
     # There may still be some NaN values from the resting state recording, so remove those rows too.
-    windowed_df = windowed_df.dropna()
+    # windowed_df = windowed_df.dropna()
 
     experiments: list[tuple[str, Callable[[pd.DataFrame], tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]]]] = [
-        # ("Initial", experiment_initial),
-        # ("No Rest", experiment_no_rest),
-        # ("5 Channel", experiment_5_channel),
-        # ("5 Channel No Rest", experiment_5_channel_no_rest),
-        # ("Left Right Hand", experiment_left_right_hand),
-        # ("Left Right Hand 5 Channel", experiment_left_right_hand_5_channel),
-        # ("Left Right Hand 2 Channel", experiment_left_right_hand_2_channel),
+        ("Initial", experiment_initial),
+        ("No Rest", experiment_no_rest),
+        ("5 Channel", experiment_5_channel),
+        ("5 Channel No Rest", experiment_5_channel_no_rest),
+        ("Left Right Hand", experiment_left_right_hand),
+        ("Left Right Hand 5 Channel", experiment_left_right_hand_5_channel),
+        ("Left Right Hand 2 Channel", experiment_left_right_hand_2_channel),
         ("Resting vs Left Hand", experiment_resting_vs_left_hand),
         ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
         ("Resting vs Left Hand C4", experiment_resting_vs_left_hand_c4),
         ("Resting vs Left Hand C3", experiment_resting_vs_left_hand_c3),
         # ("Resting vs Left Right Hand 2 Channel", experiment_resting_vs_left_right_hand_2_channel)
+        ("Resting vs All", experiment_resting_vs_all),
+        ("Resting vs All Single Channel", experiment_resting_vs_all_single_channel),
     ]
 
     for experiment_name, experiment_function in experiments:
@@ -264,11 +294,11 @@ if __name__ == "__main__":
         accuracy, _, _ = experiment_function(df)
         print(f"Accuracy: {accuracy}")
 
-    windowed_experiments: list[tuple[str, Callable[[pd.DataFrame], tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]]]] = [
-        ("Resting vs Left Hand C3 Windowed", experiment_windowed_resting_vs_left_hand_c3)
-    ]
+    # windowed_experiments: list[tuple[str, Callable[[pd.DataFrame], tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]]]] = [
+    #     ("Resting vs Left Hand C3 Windowed", experiment_windowed_resting_vs_left_hand_c3)
+    # ]
 
-    for windowed_experiment_name, windowed_experiment_function in windowed_experiments:
-        print(f"Running experiment: {windowed_experiment_name}")
-        accuracy, _, _ = windowed_experiment_function(windowed_df)
-        print(f"Accuracy: {accuracy}")
+    # for windowed_experiment_name, windowed_experiment_function in windowed_experiments:
+    #     print(f"Running experiment: {windowed_experiment_name}")
+    #     accuracy, _, _ = windowed_experiment_function(windowed_df)
+    #     print(f"Accuracy: {accuracy}")
