@@ -1,3 +1,4 @@
+import dataset_bci_iv as bci_iv
 import pandas as pd
 
 from dataset_bci_iv import BciIvCsvParser
@@ -224,7 +225,7 @@ def experiment_windowed_resting_vs_left_hand_c3(windowed_df: pd.DataFrame) -> tu
     windowed_df = windowed_df[criterion]
 
     # Separate data from labels
-    X = windowed_df[[f"C3_{i}" for i in range(10)]]
+    X = windowed_df[["C3"]]
     y = windowed_df["Label"]
 
     return train_naive_bayes(X, y)
@@ -249,41 +250,22 @@ if __name__ == "__main__":
     # Not dealing with EOG data for now
     df = df.drop(columns=["EOGL", "EOGM", "EOGR"])
 
-    # Removing rejected trials
+    # Removing rejected trials and / or NaN artifacts
     df = df[df["Artifact"] != 1.0]
     df = df.drop(columns=["Artifact"])
 
-    # There may still be some NaN values from the resting state recording, so remove those rows too.
-    df = df.dropna()
-
-    # windowed_df_train: pd.DataFrame = bci_iv_parser_session_train.get_windowed_dataframe(10, 9)
-    # windowed_df_eval: pd.DataFrame = bci_iv_parser_session_eval.get_windowed_dataframe(10, 9)
-
-    # windowed_df: pd.DataFrame = pd.concat([windowed_df_train, windowed_df_eval])
-
-    # print(f"Windowed DataFrame shape:\n{windowed_df.shape}")
-    # print(f"First few rows:\n{windowed_df.head()}")
-    # print(f"Artifact rows:\n{windowed_df[windowed_df["Artifact"] == 1.0].shape[0]}")
-
-    # Remove rejected trials
-    # windowed_df = windowed_df[windowed_df["Artifact"] != 1.0]
-    # windowed_df = windowed_df.drop(columns=["Artifact"])
-
-    # There may still be some NaN values from the resting state recording, so remove those rows too.
-    # windowed_df = windowed_df.dropna()
-
     experiments: list[tuple[str, Callable[[pd.DataFrame], tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]]]] = [
-        ("Initial", experiment_initial),
-        ("No Rest", experiment_no_rest),
-        ("5 Channel", experiment_5_channel),
-        ("5 Channel No Rest", experiment_5_channel_no_rest),
-        ("Left Right Hand", experiment_left_right_hand),
-        ("Left Right Hand 5 Channel", experiment_left_right_hand_5_channel),
-        ("Left Right Hand 2 Channel", experiment_left_right_hand_2_channel),
-        ("Resting vs Left Hand", experiment_resting_vs_left_hand),
-        ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
-        ("Resting vs Left Hand C4", experiment_resting_vs_left_hand_c4),
-        ("Resting vs Left Hand C3", experiment_resting_vs_left_hand_c3),
+        # ("Initial", experiment_initial),
+        # ("No Rest", experiment_no_rest),
+        # ("5 Channel", experiment_5_channel),
+        # ("5 Channel No Rest", experiment_5_channel_no_rest),
+        # ("Left Right Hand", experiment_left_right_hand),
+        # ("Left Right Hand 5 Channel", experiment_left_right_hand_5_channel),
+        # ("Left Right Hand 2 Channel", experiment_left_right_hand_2_channel),
+        # ("Resting vs Left Hand", experiment_resting_vs_left_hand),
+        # ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
+        # ("Resting vs Left Hand C4", experiment_resting_vs_left_hand_c4),
+        # ("Resting vs Left Hand C3", experiment_resting_vs_left_hand_c3),
         # ("Resting vs Left Right Hand 2 Channel", experiment_resting_vs_left_right_hand_2_channel)
         ("Resting vs All", experiment_resting_vs_all),
         ("Resting vs All Single Channel", experiment_resting_vs_all_single_channel),
@@ -293,12 +275,3 @@ if __name__ == "__main__":
         print(f"Running experiment: {experiment_name}")
         accuracy, _, _ = experiment_function(df)
         print(f"Accuracy: {accuracy}")
-
-    # windowed_experiments: list[tuple[str, Callable[[pd.DataFrame], tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]]]] = [
-    #     ("Resting vs Left Hand C3 Windowed", experiment_windowed_resting_vs_left_hand_c3)
-    # ]
-
-    # for windowed_experiment_name, windowed_experiment_function in windowed_experiments:
-    #     print(f"Running experiment: {windowed_experiment_name}")
-    #     accuracy, _, _ = windowed_experiment_function(windowed_df)
-    #     print(f"Accuracy: {accuracy}")

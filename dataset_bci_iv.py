@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from typing import TextIO
@@ -81,6 +82,10 @@ class BciIvCsvParser:
             line_segments: list[str] = line.strip().split(CSV_DELIMITER)
             data_segments: list[float] = list(map(float, line_segments[:NUM_DATA_COLUMNS])) + [float(label), float(artifact_status)]
 
+            # If there are NaN values in the data, set the artifact status to 1
+            if np.any(np.isnan(data_segments)):
+                data_segments[-1] = 1.0
+
             if len(data_segments) != len(self.data_headers):
                 raise(ValueError(f"Expected {len(self.data_headers)} data columns, got {len(data_segments)}"))
 
@@ -123,6 +128,10 @@ class BciIvCsvParser:
                 # Also need to capture the current row, which should not have artifacts
                 data_segments: list[float] = list(map(float, line_segments[:NUM_DATA_COLUMNS])) + [float(class_label), 0.0]
                 
+                # If there are NaN values in the data, set the artifact status to 1
+                if np.any(np.isnan(data_segments)):
+                    data_segments[-1] = 1.0
+
                 if len(data_segments) != len(self.data_headers):
                     raise(ValueError(f"Expected {len(self.data_headers)} data columns, got {len(data_segments)}"))
 
@@ -159,18 +168,8 @@ class BciIvCsvParser:
         
         return pd.DataFrame(self.data)
 
+    
     def get_windowed_dataframe(self, window_size: int, window_overlap: int) -> pd.DataFrame:
-        """
-        A window refers to a set of consecutive samples from the EEG data. This set of consectutive samples is
-        concatenated together to form a single row in the resulting DataFrame. The window size controls the number of
-        consecutive samples that make up one output row. The window overlap controls the number of samples shared
-        between two consecutive windows.
-
-        A window size of 1 and window_overlap of 0 is equivalent to calling get_dataframe().
-
-        Expects parse() to have been called first.
-        """
-
         if window_size < 1:
             raise ValueError("Window size must be at least 1")
 
@@ -182,17 +181,11 @@ class BciIvCsvParser:
 
         if window_size == 1:
             return pd.DataFrame(self.data)
-
-        windowed_data_headers: list[str] = []
-
-        for i in range(window_size):
-            windowed_data_headers += [f"{header}_{i}" for header in self.data_headers[:NUM_DATA_COLUMNS]]
         
-        windowed_data_headers += [LABEL_COL_NAME, ARTIFACT_COL_NAME]
+        windowed_data_headers: list[str] = self.data_headers[:]
+        windowed_data: dict[str, list[list[float]] | list[float]] = {header: [] for header in windowed_data_headers}
 
-        windowed_data: dict[str, list[float]] = {header: [] for header in windowed_data_headers}
-
-        # Important: the windows must capture EEG data that was recorded sequentially. There is no overlap in the data
+        # NOTE: the windows must capture EEG data that was recorded sequentially. There is no overlap in the data
         # recording between the resting state and the motor imagery tasks. There is also no overlap between the motor imagery
         # tasks in different trials, since the measurements were taken from the t = 3s to t = 6s periods of each trial.
 
@@ -204,15 +197,29 @@ class BciIvCsvParser:
             # Loop over each window in the collection of consecutive samples
             for window_base_index in range(0, num_samples - window_size + 1, window_size - window_overlap):
 
+                # For each window, start the list with an empty list for each data header
+                for header in self.data_headers[:NUM_DATA_COLUMNS]:
+                    windowed_data[header].append([])
+
+                insert_nan_artifact: bool = False
+
                 # Loop over each sample in the window
-                for window_sample_index in range(window_size):
-                    for header in self.data_headers[:NUM_DATA_COLUMNS]:
-                        windowed_data[f"{header}_{window_sample_index}"].append(self.data[header][row_index + window_base_index + window_sample_index])
+                for header in self.data_headers[:NUM_DATA_COLUMNS]:
+                    window_data: list[float] = self.data[header][row_index + window_base_index:row_index + window_base_index + window_size]
+                    
+                    if np.any(np.isnan(window_data)):
+                        insert_nan_artifact = True
+
+                    windowed_data[header][-1].append(window_data)
 
                 # Each window should have a single class label and single artifact status
                 windowed_data[LABEL_COL_NAME].append(class_label)
                 windowed_data[ARTIFACT_COL_NAME].append(artifact_status)
 
-            row_index += num_samples
+                if insert_nan_artifact:
+                    windowed_data[ARTIFACT_COL_NAME][-1] = 1
+                    insert_nan_artifact = False
 
+            row_index += num_samples
+    
         return pd.DataFrame(windowed_data)

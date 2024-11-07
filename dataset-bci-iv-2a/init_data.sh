@@ -14,13 +14,13 @@ fi
 if [ -f "BCICIV_2a_gdf.zip" ]; then
     echo "BCICIV_2a_gdf.zip already exists. Skipping download."
 else
-    wget https://www.bbci.de/competition/download/competition_iv/BCICIV_2a_gdf.zip
+    curl -kLSs https://www.bbci.de/competition/download/competition_iv/BCICIV_2a_gdf.zip -o BCICIV_2a_gdf.zip
 fi
 
 if [ -f "true_labels.zip" ]; then
     echo "true_labels.zip already exists. Skipping download."
 else
-    wget https://www.bbci.de/competition/iv/results/ds2a/true_labels.zip
+    curl -kLSs https://www.bbci.de/competition/iv/results/ds2a/true_labels.zip -o true_labels.zip
 fi
 
 unzip -o BCICIV_2a_gdf.zip
