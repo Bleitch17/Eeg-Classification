@@ -15,109 +15,130 @@ function gdf_to_csv(session_id)
     % Expecting true_labels to hold [288 x 1] class labels
     true_labels = load(strcat(session_id, '.mat'));
 
-    % Indexes to track current trial true labal, and current trial artifact status
-    true_label_idx = 1;
+    % EEG and EOG data matrix with 27 columns:
+    % 22 EEG columns
+    % 3 EOG columns
+    % 1 Label column
+    % 1 Recording Index column
+    eeg_eog_data = zeros(size(s, 1), NUM_EEG_CHANNELS + NUM_EOG_CHANNELS + 2);
 
-    % First 22 columns are EEG, last 3 are EOG
-    eeg_eog_data = s(:, 1:NUM_EEG_CHANNELS + NUM_EOG_CHANNELS);
+    % New event matrix will have columns: [label, position, duration]
+    event_matrix = create_event_matrix(h.EVENT, true_labels.classlabel, h.ArtifactSelection);
 
-    % Last two columns will be event types and event durations
-    % Note - it is possible for multiple events to map to the same sample, hence using cell arrays
-    event_types = cell(size(eeg_eog_data, 1), 1);
-    for event_types_idx = 1:size(event_types, 1)
-        event_types{event_types_idx} = [];
-    end
+    % Recordings will be 0-indexed for the CSV file
+    recording_index = 0;
 
-    event_durations = cell(size(eeg_eog_data, 1), 1);
-    for event_durations_idx = 1:size(event_durations, 1)
-        event_durations{event_durations_idx} = [];
-    end
-    
-    for event_idx = 1:length(h.EVENT.TYP)
-        event_type = h.EVENT.TYP(event_idx);
-        event_pos = h.EVENT.POS(event_idx);
-        event_dur = h.EVENT.DUR(event_idx);
+    sample_index = 1;
 
-        % If the event_type is the unknown cue, then need to find the corresponding true label
-        if event_type == EVENT_TYPE_UNKNOWN_CUE
-            assert(true_label_idx <= TRIALS_PER_SESSION, 'True label select exceeded the number of expected trials in the session');
-            
-            class_label = true_labels.classlabel(true_label_idx);
-            
-            % Class labels to events: https://www.bbci.de/competition/iv/desc_2a.pdf
-            if class_label == 1
-                event_type = EVENT_TYPE_CUE_LEFT;
-            elseif class_label == 2
-                event_type = EVENT_TYPE_CUE_RIGHT;
-            elseif class_label == 3
-                event_type = EVENT_TYPE_CUE_FEET;
-            elseif class_label == 4
-                event_type = EVENT_TYPE_CUE_TONGUE;
+    for event_index = 1:size(event_matrix, 1)
+        event_label = event_matrix(event_index, 1);
+        event_position = event_matrix(event_index, 2);
+        event_duration = event_matrix(event_index, 3);
+
+        for event_sample_index = event_position:event_position + event_duration
+            % Only update the recording index if the current sample contains NaN values,
+            % and the previous sample does not. If there is no previous sample, i.e.: the first sample
+            % is NaN, then no need to update the recording index.
+            if any(isnan(s(event_sample_index, :)))
+                if event_sample_index > 1 && ~any(isnan(s(event_sample_index - 1, :)))
+                    recording_index = recording_index + 1;
+                end
+                continue;
             end
-            
-            true_label_idx = true_label_idx + 1;
+
+            % Get the current row from the original data, and place it in the new data matrix
+            eeg_eog_data(sample_index, 1:NUM_EEG_CHANNELS + NUM_EOG_CHANNELS) = s(event_sample_index, 1:NUM_EEG_CHANNELS + NUM_EOG_CHANNELS);
+            eeg_eog_data(sample_index, NUM_EEG_CHANNELS + NUM_EOG_CHANNELS + 1) = event_label;
+            eeg_eog_data(sample_index, NUM_EEG_CHANNELS + NUM_EOG_CHANNELS + 2) = recording_index;
+
+            sample_index = sample_index + 1;
         end
 
-        % Append the event type to the event types array at the event position
-        event_types{event_pos} = [event_types{event_pos}, event_type];
-
-        % Append the event duration to the event durations array at the event position
-        event_durations{event_pos} = [event_durations{event_pos}, event_dur];
+        % If the last sample of the event was NaN, the recording index would already have been updated
+        if ~any(isnan(s(event_position + event_duration, :)))
+            recording_index = recording_index + 1;
+        end
     end
 
-    headers = [ELECTRODES, 'Event Types', 'Event Durations'];
+    % Trim the data to the correct size
+    eeg_eog_data = eeg_eog_data(1:sample_index - 1, :);
+
+    headers = [ELECTRODES, 'Label', 'Recording'];
 
     % Write the data to a CSV file
-    csvwrite_with_headers(strcat(session_id, '.csv'), headers, eeg_eog_data, event_types, event_durations);
+    csvwrite_with_headers(strcat(session_id, '.csv'), headers, eeg_eog_data);
 end
 
 
-function csvwrite_with_headers(filename, headers, eeg_eog_data, event_types, event_durations)
+function event_matrix = create_event_matrix(event_struct, true_labels, artifact_select)
     constants;
     
+    % The event matrix will not have more rows than the number of events in the event struct
+    event_matrix = zeros(length(event_struct.TYP), 3);    
+    new_event_index = 1;
+    trial_index = 1;
+
+    for event_index = 1:length(event_struct.TYP)
+        event_type = event_struct.TYP(event_index);
+        event_pos = event_struct.POS(event_index);
+        event_dur = event_struct.DUR(event_index);
+
+        if event_type == EVENT_TYPE_REST
+            event_type = 0
+        
+        elseif event_type == EVENT_TYPE_TRIAL_START
+            % If the current trial has an artifact, skip it
+            if artifact_select(trial_index) == 1
+                trial_index = trial_index + 1;
+                continue;
+            end
+            
+            event_type = true_labels(trial_index);
+            
+            % The samples of interest for the trial are from [t = 3s, t = 6s)
+            % Therefore, includes sample positions [751, 1500]
+            event_pos = event_pos + 3 * SAMPLE_RATE_HZ;
+
+            % NOTE - event durations don't include the sample at the start of the event, i.e.: they are
+            % the number of samples to read in addition to the starting sample.
+            % Therefore, to get 750 samples per trial, need to read 749 additional samples.
+            event_dur = 3 * SAMPLE_RATE_HZ - 1;
+
+            trial_index = trial_index + 1;
+
+        else
+            % Skip all other events
+            continue;
+        end
+
+        event_matrix(new_event_index, 1) = event_type;
+        event_matrix(new_event_index, 2) = event_pos;
+        event_matrix(new_event_index, 3) = event_dur;
+
+        new_event_index = new_event_index + 1;
+    end
+
+    % Trim the event matrix to the correct size
+    event_matrix = event_matrix(1:new_event_index - 1, :);
+end
+
+
+function csvwrite_with_headers(filename, headers, eeg_eog_data)
+    constants;
+    
+    % Open the file for writing
     fid = fopen(filename, 'w');
+    
+    % Write the headers
     fprintf(fid, '%s,', headers{1:end-1});
     fprintf(fid, '%s\n', headers{end});
     
-    % All input matrices should have the same number of rows
-    assert(size(eeg_eog_data, 1) == size(event_types, 1), 'Number of rows in EEG/EOG data and event types do not match');
-    assert(size(eeg_eog_data, 1) == size(event_durations, 1), 'Number of rows in EEG/EOG data and event durations do not match');
-
-    for row_idx = 1:size(eeg_eog_data, 1)
-        % Write the EEG and EOG data
-        for col_idx = 1:NUM_EEG_CHANNELS + NUM_EOG_CHANNELS - 1
-            fprintf(fid, '%f,', eeg_eog_data(row_idx, col_idx));
-        end
-
-        fprintf(fid, '%f', eeg_eog_data(row_idx, NUM_EEG_CHANNELS + NUM_EOG_CHANNELS));
-
-        num_events = length(event_types{row_idx});
-
-        if num_events == 0
-            for ignore = 1:2
-                fprintf(fid, ',');
-            end
-            fprintf(fid, '\n');
-
-        elseif num_events == 1
-            fprintf(fid, ',%d,%d\n', event_types{row_idx}(1), event_durations{row_idx}(1));
-
-        else
-            fprintf(fid, ',');
-
-            for event_idx = 1:num_events - 1
-                fprintf(fid, '%d ', event_types{row_idx}(event_idx));
-            end
-
-            fprintf(fid, '%d,', event_types{row_idx}(end));
-
-            for event_idx = 1:num_events - 1
-                fprintf(fid, '%d ', event_durations{row_idx}(event_idx));
-            end
-
-            fprintf(fid, '%d\n', event_durations{row_idx}(end));
-        end
+    % Write the data
+    for row = 1:size(eeg_eog_data, 1)
+        fprintf(fid, '%f,', eeg_eog_data(row, 1:end-1));
+        fprintf(fid, '%f\n', eeg_eog_data(row, end));
     end
-
+    
+    % Close the file
     fclose(fid);
 end

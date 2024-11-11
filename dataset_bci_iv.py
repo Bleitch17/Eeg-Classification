@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
+import torch
 
+from sklearn.preprocessing import StandardScaler
+from torch.utils.data import Dataset
 from typing import TextIO
 
 
@@ -10,6 +13,9 @@ EVENT_DELIMITER: str = " "
 COL_EVENT_TYPES: str = "Event Types"
 COL_EVENT_DURATIONS: str = "Event Durations"
 
+COL_INDEX_EVENT_TYPES: int = -2
+COL_INDEX_EVENT_DURATION: int = -1
+
 # Name of the column in the label DataFrame
 LABEL_COL_NAME: str = "Label"
 ARTIFACT_COL_NAME: str = "Artifact"
@@ -18,6 +24,44 @@ ARTIFACT_COL_NAME: str = "Artifact"
 NUM_DATA_COLUMNS: int = 25
 
 SAMPLE_RATE_HZ: int = 250
+
+
+class BciIvCsvParserII:
+    def __init__(self, csv_file_path: str) -> None:
+        # Data will be internally represented as a dictionary of lists,
+        # for convenient conversion to a pandas DataFrame
+        self.data: dict[str, list[float]] = {}
+        self.headers: list[str] = []
+        
+        # Maintain information about consecutive samples for each class label.
+        # This will be used to create windowed data.
+        self.metadata: dict[str, list[int]] = {
+            "NumSamples": [],
+            "ClassLabel": [],
+        }
+
+        self.parse(csv_file_path)
+
+    def parse(self, csv_file_path: str) -> None:    
+        """
+        Loads contents of the CSV file into the internal container.
+        """
+
+        with open(csv_file_path, "r") as csv_file:
+            # The first row is expected to contain the headers:
+            self.headers = csv_file.readline().strip().split(CSV_DELIMITER)
+            self.data = {header: [] for header in self.headers}
+
+            while line := csv_file.readline():
+                if not line or line == "\n":
+                    # End of file reached, should be no blank lines except for the last one
+                    break
+                
+                line_segments: list[str] = line.strip().split(CSV_DELIMITER)
+                event_types_string: str = line_segments[COL_INDEX_EVENT_TYPES]
+
+
+
 
 
 class BciIvCsvParser:
@@ -223,3 +267,25 @@ class BciIvCsvParser:
             row_index += num_samples
     
         return pd.DataFrame(windowed_data)
+
+
+class BciIvDataset(Dataset):
+    """
+    Provides an interface for retrieving samples from the BCI Competition IV dataset,
+    for use with the PyTorch package.
+    """
+
+    def __init__(self, subject_number: int, window_size: int, window_overlap: int) -> None:
+        if subject_number < 1 or subject_number > 9:
+            raise ValueError(f"Subject number must be between 1 and 9, but got {subject_number}")
+        
+        if window_size < 1:
+            raise ValueError(f"Window size must be at least 1, but got {window_size}")
+
+        if window_overlap >= window_size:
+            raise ValueError(f"Window overlap must be less than window size, but got window size: {window_size}, window overlap: {window_overlap}")
+
+        self.subject_number: int = subject_number
+        self.window_size: int = window_size
+
+        # Load both CSV files for a particular subject into dataframes, remove artifact rows, concatenate them, and create a windowed dataframe

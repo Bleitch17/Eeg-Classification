@@ -2,14 +2,12 @@ NUM_EEG_CHANNELS = 22;
 NUM_EOG_CHANNELS = 3;
 
 % From: https://www.bbci.de/competition/iv/desc_2a.pdf
-EVENT_TYPE_TRIAL_START = 786;
-EVENT_TYPE_UNKNOWN_CUE = 783;
-EVENT_TYPE_CUE_LEFT = 769;
-EVENT_TYPE_CUE_RIGHT = 770;
-EVENT_TYPE_CUE_FEET = 771;
-EVENT_TYPE_CUE_TONGUE = 772;
+EVENT_TYPE_TRIAL_START = 768;
+EVENT_TYPE_REST = 276;
 
 TRIALS_PER_SESSION = 288;
+
+SAMPLE_RATE_HZ = 250;
 
 % Electrodes mapping from the dataset description to the 10-10 system:
 % https://en.wikipedia.org/wiki/10%E2%80%9320_system_(EEG)#/media/File:EEG_10-10_system_with_additional_information.svg
