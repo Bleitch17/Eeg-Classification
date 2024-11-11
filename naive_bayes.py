@@ -1,10 +1,10 @@
-import dataset_bci_iv as bci_iv
 import pandas as pd
 
-from dataset_bci_iv import BciIvCsvParser
+from dataset_bci_iv_2a.dataset import BciIvCsvParser
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import GaussianNB
+from sklearn.preprocessing import StandardScaler
 from typing import Callable
 
 # Type aliases
@@ -204,6 +204,20 @@ def experiment_resting_vs_all(df: pd.DataFrame) -> tuple[AccuracyScore, Confusio
     return train_naive_bayes(X, y)
 
 
+def experiment_resting_vs_all_5_channel(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
+
+    df = df.copy()
+
+    # Re-label all rows with labels greater than or equal to 1 to 1
+    df.loc[df["Label"] >= 1, "Label"] = 1
+
+    # Separate data from labels
+    X = df[["Fz", "C3", "Cz", "C4", "Pz"]]
+    y = df["Label"]
+
+    return train_naive_bayes(X, y)
+
+
 def experiment_resting_vs_all_single_channel(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
 
     df = df.copy()
@@ -218,41 +232,27 @@ def experiment_resting_vs_all_single_channel(df: pd.DataFrame) -> tuple[Accuracy
     return train_naive_bayes(X, y)
 
 
-def experiment_windowed_resting_vs_left_hand_c3(windowed_df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
-        
-    # Extract resting state and left hand data
-    criterion = windowed_df["Label"].map(lambda x: x == 0 or x == 1)
-    windowed_df = windowed_df[criterion]
-
-    # Separate data from labels
-    X = windowed_df[["C3"]]
-    y = windowed_df["Label"]
-
-    return train_naive_bayes(X, y)
-
-
 if __name__ == "__main__":
     bci_iv_parser_session_train: BciIvCsvParser = BciIvCsvParser(f"{BCI_COMP_DATASET_PATH}A01T.csv")
-    bci_iv_parser_session_train.parse()
-    
     bci_iv_parser_session_eval: BciIvCsvParser = BciIvCsvParser(f"{BCI_COMP_DATASET_PATH}A01E.csv")    
-    bci_iv_parser_session_eval.parse()
 
     df_train: pd.DataFrame = bci_iv_parser_session_train.get_dataframe()
     df_eval: pd.DataFrame = bci_iv_parser_session_eval.get_dataframe()
 
-    df: pd.DataFrame = pd.concat([df_train, df_eval])
+    raw_df: pd.DataFrame = pd.concat([df_train, df_eval])
 
-    print(f"DataFrame shape:\n{df.shape}")
-    print(f"First few rows:\n{df.head()}")
-    print(f"Artifact rows:\n{df[df["Artifact"] == 1.0].shape[0]}")
+    print(f"DataFrame shape:\n{raw_df.shape}")
+    print(f"First few rows:\n{raw_df.head()}")
 
-    # Not dealing with EOG data for now
-    df = df.drop(columns=["EOGL", "EOGM", "EOGR"])
+    # Not dealing with EOG data for now, and don't need to worry about recordings
+    raw_df = raw_df.drop(columns=["EOGL", "EOGM", "EOGR", "Recording"])
 
-    # Removing rejected trials and / or NaN artifacts
-    df = df[df["Artifact"] != 1.0]
-    df = df.drop(columns=["Artifact"])
+    # Normalize all columns except the Label column
+    scaler = StandardScaler()
+    features = raw_df.drop(columns=["Label"])
+    scaled_features = scaler.fit_transform(features)
+    scaled_df = pd.DataFrame(scaled_features, columns=features.columns)
+    scaled_df["Label"] = raw_df["Label"].values
 
     experiments: list[tuple[str, Callable[[pd.DataFrame], tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]]]] = [
         # ("Initial", experiment_initial),
@@ -267,11 +267,12 @@ if __name__ == "__main__":
         # ("Resting vs Left Hand C4", experiment_resting_vs_left_hand_c4),
         # ("Resting vs Left Hand C3", experiment_resting_vs_left_hand_c3),
         # ("Resting vs Left Right Hand 2 Channel", experiment_resting_vs_left_right_hand_2_channel)
-        ("Resting vs All", experiment_resting_vs_all),
         ("Resting vs All Single Channel", experiment_resting_vs_all_single_channel),
+        ("Resting vs All 5 Channel", experiment_resting_vs_all_5_channel),
+        ("Resting vs All", experiment_resting_vs_all),
     ]
 
     for experiment_name, experiment_function in experiments:
         print(f"Running experiment: {experiment_name}")
-        accuracy, _, _ = experiment_function(df)
+        accuracy, _, _ = experiment_function(scaled_df)
         print(f"Accuracy: {accuracy}")
