@@ -84,7 +84,7 @@ function event_matrix = create_event_matrix(event_struct, true_labels, artifact_
         event_dur = event_struct.DUR(event_index);
 
         if event_type == EVENT_TYPE_REST
-            event_type = 0
+            event_type = 0;
         
         elseif event_type == EVENT_TYPE_TRIAL_START
             % If the current trial has an artifact, skip it

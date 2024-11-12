@@ -64,7 +64,9 @@ class BciIvDataset(Dataset):
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
         array = np.stack(self.data.iloc[idx].values)
 
-        return torch.tensor(array, dtype=torch.float32), self.labels.iloc[idx]
+        # Note - for each item, labels should return an index into a list of classes.
+        # In this case, the classes (in order) are: "Rest", "Left", "Right", "Feet", and "Tongue"
+        return torch.tensor(array, dtype=torch.float32), int(self.labels.iloc[idx])
 
 
 def create_windowed_dictionary(df: pd.DataFrame, window_size: int, window_overlap: int) -> dict[str, list[list[float]] | list[float]]:
@@ -73,6 +75,11 @@ def create_windowed_dictionary(df: pd.DataFrame, window_size: int, window_overla
 
     if window_overlap >= window_size:
         raise ValueError(f"Window overlap must be less than window size, but got window size: {window_size}, window overlap: {window_overlap}")
+
+    if len(df) < window_size:
+        # This can happen if there are a few samples that were stuck between groups of samples containing NaN values.
+        # If this occurs, creating a windowed dictionary won't be possible, so just return.
+        return {}
 
     label_column: str = "Label"
     data_columns: list[str] = df.columns.drop(label_column).tolist()
@@ -137,6 +144,6 @@ class BciIvDatasetFactory:
         labels: pd.Series = windowed_df["Label"]
         windowed_df: pd.DataFrame = windowed_df.drop(columns=["Label"])
 
-        X_train, X_test, y_train, y_test = train_test_split(windowed_df, labels, test_size=0.2, random_state=42)
+        X_train, X_test, y_train, y_test = train_test_split(windowed_df, labels, test_size=0.1, random_state=42)
 
         return BciIvDataset(X_train, y_train, window_size), BciIvDataset(X_test, y_test, window_size)
