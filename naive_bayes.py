@@ -1,6 +1,6 @@
 import pandas as pd
 
-from dataset_bci_iv_2a.dataset import BciIvCsvParser
+from dataset_bci_iv_2a.dataset import BciIvCsvParser, filter_dataframe
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import GaussianNB
@@ -13,7 +13,7 @@ ConfusionMatrix = list[list[int]]
 ClassificationReport = str
 
 # Other constants
-BCI_COMP_DATASET_PATH: str = "dataset-bci-iv-2a/"
+BCI_COMP_DATASET_PATH: str = "dataset_bci_iv_2a/"
 
 # Used as seed for test_train_split
 RANDOM_STATE: int = 17 
@@ -244,15 +244,19 @@ if __name__ == "__main__":
     print(f"DataFrame shape:\n{raw_df.shape}")
     print(f"First few rows:\n{raw_df.head()}")
 
-    # Not dealing with EOG data for now, and don't need to worry about recordings
-    raw_df = raw_df.drop(columns=["EOGL", "EOGM", "EOGR", "Recording"])
+    # Not dealing with EOG data for now
+    raw_df = raw_df.drop(columns=["EOGL", "EOGM", "EOGR"])
 
     # Normalize all columns except the Label column
     scaler = StandardScaler()
-    features = raw_df.drop(columns=["Label"])
+    features = raw_df.drop(columns=["Label", "Recording"])
     scaled_features = scaler.fit_transform(features)
     scaled_df = pd.DataFrame(scaled_features, columns=features.columns)
+    
     scaled_df["Label"] = raw_df["Label"].values
+    scaled_df["Recording"] = raw_df["Recording"].values
+
+    filtered_df = filter_dataframe(scaled_df, 8.0, 30.0, 250.0).drop(columns=["Recording"])
 
     experiments: list[tuple[str, Callable[[pd.DataFrame], tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]]]] = [
         # ("Initial", experiment_initial),
@@ -262,8 +266,8 @@ if __name__ == "__main__":
         # ("Left Right Hand", experiment_left_right_hand),
         # ("Left Right Hand 5 Channel", experiment_left_right_hand_5_channel),
         # ("Left Right Hand 2 Channel", experiment_left_right_hand_2_channel),
-        # ("Resting vs Left Hand", experiment_resting_vs_left_hand),
-        # ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
+        ("Resting vs Left Hand", experiment_resting_vs_left_hand),
+        ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
         # ("Resting vs Left Hand C4", experiment_resting_vs_left_hand_c4),
         # ("Resting vs Left Hand C3", experiment_resting_vs_left_hand_c3),
         # ("Resting vs Left Right Hand 2 Channel", experiment_resting_vs_left_right_hand_2_channel)
@@ -274,5 +278,5 @@ if __name__ == "__main__":
 
     for experiment_name, experiment_function in experiments:
         print(f"Running experiment: {experiment_name}")
-        accuracy, _, _ = experiment_function(scaled_df)
+        accuracy, _, _ = experiment_function(filtered_df)
         print(f"Accuracy: {accuracy}")

@@ -27,6 +27,19 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=4):
     return y
 
 
+def filter_dataframe(df: pd.DataFrame, lowcut: float, highcut: float, fs: float, order: int = 4) -> pd.DataFrame:
+    filtered_df = df.copy()
+    data_columns = df.columns.drop(["Recording", "Label"])
+
+    for recording in df["Recording"].unique():
+        recording_indices = df["Recording"] == recording
+        
+        for column in data_columns:
+            filtered_df.loc[recording_indices, column] = butter_bandpass_filter(df.loc[recording_indices, column].values, lowcut, highcut, fs, order)
+
+    return filtered_df
+
+
 class BciIvCsvParser:
     def __init__(self, csv_file_path: str) -> None:
         # Data will be internally represented as a dictionary of lists,
