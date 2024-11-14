@@ -70,7 +70,7 @@ if __name__ == "__main__":
         device = torch.device("xpu:0")
 
     # TODO - would like to customize the numver of EEG channels
-    trainset, testset = BciIvDatasetFactory.create(1, 50, 30)
+    trainset, testset = BciIvDatasetFactory.create(1, 50, 25)
     batch_size: int = 8
 
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
@@ -123,8 +123,8 @@ if __name__ == "__main__":
 
             running_loss += loss.item()
 
-            if i % 500 == 499:
-                print(f"[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 500:.3f}, accuracy: {100 * correct / total:.2f}%")
+            if i % 200 == 199:
+                print(f"[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 200:.3f}, accuracy: {100 * correct / total:.2f}%")
                 running_loss = 0.0
                 correct = 0
                 total = 0

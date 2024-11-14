@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import scipy.signal as signal
 import torch
 
 from sklearn.model_selection import train_test_split
@@ -8,6 +9,22 @@ from torch.utils.data import Dataset
 
 
 CSV_DELIMITER: str = ","
+
+
+def butter_bandpass(lowcut, highcut, fs, order=4):
+    nyquist = 0.5 * fs
+    low = lowcut / nyquist
+    high = highcut / nyquist
+    b, a = signal.butter(order, [low, high], btype='band')
+    return b, a
+
+
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=4):
+    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    
+    # Apply the filter forwards and backwards to remove phase delay
+    y = signal.filtfilt(b, a, data)
+    return y
 
 
 class BciIvCsvParser:
@@ -90,7 +107,10 @@ def create_windowed_dictionary(df: pd.DataFrame, window_size: int, window_overla
 
     for window_base_index in range(0, len(df) - window_size + 1, window_size - window_overlap):
         for data_column in data_columns:
-            windowed_data[data_column].append(df[data_column].values[window_base_index:window_base_index + window_size])
+            filtered_window = butter_bandpass_filter(df[data_column].values[window_base_index:window_base_index + window_size], 8, 30, 250)
+
+            # windowed_data[data_column].append(df[data_column].values[window_base_index:window_base_index + window_size])
+            windowed_data[data_column].append(filtered_window)
 
         windowed_data[label_column].append(df[label_column].values[window_base_index])
 
