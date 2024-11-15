@@ -22,24 +22,27 @@ class Net(nn.Module):
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=8, kernel_size=(22, 1), stride=1, padding=0)
 
         # Temporal Convolutional Layer: extract temporal features from the spatial features
-        self.conv2 = nn.Conv2d(in_channels=8, out_channels=40, kernel_size=(1, 10), stride=5, padding=0)
+        self.conv2 = nn.Conv2d(in_channels=8, out_channels=40, kernel_size=(1, 30), stride=1, padding=0)
+
+        self.fc0 = nn.LazyLinear(out_features=200)
 
         # Fully connected layer with 100 neurons
-        self.fc1 = nn.Linear(in_features=40 * 9, out_features=100)
+        self.fc1 = nn.LazyLinear(out_features=100)
 
         # Fully connected output layer with 5 neurons (one for each class)
-        self.fc2 = nn.Linear(in_features=100, out_features=5)
+        self.fc2 = nn.LazyLinear(out_features=5)
 
-        self.tanh = nn.Tanh()
+        self.dropout = nn.Dropout(p=0.5)
+        self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         # Input size: (batch_size, 1, 22, 20)
-        c1 = self.tanh(self.conv1(input))
+        c1 = self.relu(self.conv1(input))
         # Output size: (batch_size, 8, 1, 20)
         
         # Input size: (batch_size, 8, 1, 20)
-        c2 = self.tanh(self.conv2(c1))
+        c2 = self.relu(self.conv2(c1))
         # Output size: (batch_size, 40, 1, 4)
 
         # Flatten the output of the second convolutional layer
@@ -47,8 +50,12 @@ class Net(nn.Module):
         c2_flat = torch.flatten(c2, start_dim=1)
         # Output size: (batch_size, 160)
 
+        x = self.dropout(c2_flat)
+
+        x = self.sigmoid(self.fc0(x))
+
         # Input size: (batch_size, 160)
-        f3 = self.sigmoid(self.fc1(c2_flat))
+        f3 = self.sigmoid(self.fc1(x))
         # Output size: (batch_size, 100)
 
         # Input size: (batch_size, 100)
@@ -70,11 +77,14 @@ if __name__ == "__main__":
         device = torch.device("xpu:0")
 
     # TODO - would like to customize the numver of EEG channels
-    trainset, testset = BciIvDatasetFactory.create(1, 50, 25)
+    trainset, testset = BciIvDatasetFactory.create(1, 100, 75)
     batch_size: int = 8
 
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
     testloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
+
+    print(f"Trainset size: {len(trainset)}")
+    print(f"Testset size: {len(testset)}")
 
     classes = ('Rest', 'Left', 'Right', 'Feet', 'Tongue')
 
@@ -88,7 +98,7 @@ if __name__ == "__main__":
     # See: https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
     optimizer = optim.Adam(net.parameters(), lr=0.001, weight_decay=0.0001)
 
-    for epoch in range(20):
+    for epoch in range(10):
         running_loss: float = 0.0
         correct: int = 0
         total: int = 0

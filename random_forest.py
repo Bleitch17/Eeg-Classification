@@ -119,15 +119,15 @@ if __name__ == "__main__":
     raw_df = raw_df.drop(columns=["EOGL", "EOGM", "EOGR"])
 
     # Normalize all columns except the Label column
-    scaler = StandardScaler()
-    features = raw_df.drop(columns=["Label", "Recording"])
-    scaled_features = scaler.fit_transform(features)
-    scaled_df = pd.DataFrame(scaled_features, columns=features.columns)
+    # scaler = StandardScaler()
+    # features = raw_df.drop(columns=["Label", "Recording"])
+    # scaled_features = scaler.fit_transform(features)
+    # scaled_df = pd.DataFrame(scaled_features, columns=features.columns)
     
-    scaled_df["Label"] = raw_df["Label"].values
-    scaled_df["Recording"] = raw_df["Recording"].values
+    # scaled_df["Label"] = raw_df["Label"].values
+    # scaled_df["Recording"] = raw_df["Recording"].values
 
-    filtered_df = filter_dataframe(scaled_df, 8.0, 30.0, 250.0).drop(columns=["Recording"])
+    filtered_df = filter_dataframe(raw_df, 8.0, 30.0, 250.0).drop(columns=["Recording"])
 
     experiments: list[tuple[str, Callable[[pd.DataFrame], tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]]]] = [
         # ("5 State MI Classification", experiment_5_state_mi_classification),

@@ -120,7 +120,7 @@ def create_windowed_dictionary(df: pd.DataFrame, window_size: int, window_overla
 
     for window_base_index in range(0, len(df) - window_size + 1, window_size - window_overlap):
         for data_column in data_columns:
-            filtered_window = butter_bandpass_filter(df[data_column].values[window_base_index:window_base_index + window_size], 8, 30, 250)
+            filtered_window = butter_bandpass_filter(df[data_column].values[window_base_index:window_base_index + window_size], 8, 50, 250)
 
             # windowed_data[data_column].append(df[data_column].values[window_base_index:window_base_index + window_size])
             windowed_data[data_column].append(filtered_window)
@@ -159,13 +159,14 @@ class BciIvDatasetFactory:
         # Don't care about EOG
         raw_df: pd.DataFrame = pd.concat([evaluation_df, training_df]).drop(columns=["EOGL", "EOGM", "EOGR"])
 
-        scalar: StandardScaler = StandardScaler()
-        features: pd.DataFrame = raw_df.drop(columns=["Label", "Recording"])
-        normalized_df: pd.DataFrame = pd.DataFrame(scalar.fit_transform(features), columns=features.columns)
-        normalized_df["Label"] = raw_df["Label"].values
+        # scalar: StandardScaler = StandardScaler()
+        # features: pd.DataFrame = raw_df.drop(columns=["Label", "Recording"])
+        # normalized_df: pd.DataFrame = pd.DataFrame(scalar.fit_transform(features), columns=features.columns)
+        # normalized_df["Label"] = raw_df["Label"].values
+        labeled_df: pd.DataFrame = raw_df.drop(columns=["Recording"])
 
-        windowed_data: dict[str, list[list[float]] | list[float]] = {header: [] for header in normalized_df.columns}
-        df_group_iterable = normalized_df.groupby(raw_df["Recording"].values)
+        windowed_data: dict[str, list[list[float]] | list[float]] = {header: [] for header in labeled_df.columns}
+        df_group_iterable = labeled_df.groupby(raw_df["Recording"].values)
 
         for _, df in df_group_iterable:
             windowed_dict: dict[str, list[list[float]] | list[float]] = create_windowed_dictionary(df, window_size, window_overlap)
@@ -177,6 +178,6 @@ class BciIvDatasetFactory:
         labels: pd.Series = windowed_df["Label"]
         windowed_df: pd.DataFrame = windowed_df.drop(columns=["Label"])
 
-        X_train, X_test, y_train, y_test = train_test_split(windowed_df, labels, test_size=0.1, random_state=42)
+        X_train, X_test, y_train, y_test = train_test_split(windowed_df, labels, test_size=0.15, random_state=42)
 
         return BciIvDataset(X_train, y_train, window_size), BciIvDataset(X_test, y_test, window_size)
