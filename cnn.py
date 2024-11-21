@@ -76,9 +76,9 @@ if __name__ == "__main__":
         print("XPU is available")
         device = torch.device("xpu:0")
 
-    # TODO - would like to customize the numver of EEG channels
-    trainset, testset = BciIvDatasetFactory.create(1, 100, 75)
-    batch_size: int = 8
+    # TODO - would like to customize the number of EEG channels
+    trainset, testset = BciIvDatasetFactory.create(1, 100, 90)
+    batch_size: int = 16
 
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
     testloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     # See: https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
     optimizer = optim.Adam(net.parameters(), lr=0.001, weight_decay=0.0001)
 
-    for epoch in range(20):
+    for epoch in range(15):
         running_loss: float = 0.0
         correct: int = 0
         total: int = 0
