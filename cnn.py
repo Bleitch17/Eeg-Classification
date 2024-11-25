@@ -1,8 +1,16 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import time
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+import numpy as np
+from typing import Dict, List
 
-from dataset_bci_iv_2a.dataset import BciIvDatasetFactory
+from dataset_bci_iv_2a.dataset import (
+    BciIvDatasetFactory,
+    BciIvDataset
+)
 from torch.utils.data import DataLoader
 
 
@@ -14,155 +22,359 @@ class Net(nn.Module):
     def __init__(self) -> None:
         super(Net, self).__init__()
         
-        # The input to the Neural Network will be a tensor of size: 
-        # (1, num_eeg_channels, window_size)
-
-        # Spatial Convolutional Layer: extract spatial features
-        # Will produce feature maps of size: (1 x window_size)
+        # Add batch normalization
+        self.bn1 = nn.BatchNorm2d(8)
+        self.bn2 = nn.BatchNorm2d(40)
+        
+        # Convolutional layers
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=8, kernel_size=(22, 1), stride=1, padding=0)
-
-        # Temporal Convolutional Layer: extract temporal features from the spatial features
         self.conv2 = nn.Conv2d(in_channels=8, out_channels=40, kernel_size=(1, 30), stride=1, padding=0)
-
-        self.fc0 = nn.LazyLinear(out_features=200)
-
-        # Fully connected layer with 100 neurons
-        self.fc1 = nn.LazyLinear(out_features=100)
-
-        # Fully connected output layer with 5 neurons (one for each class)
+        
+        # Fully connected layers with increased capacity
+        self.fc0 = nn.LazyLinear(out_features=400)
+        self.fc1 = nn.LazyLinear(out_features=200)
         self.fc2 = nn.LazyLinear(out_features=5)
-
-        self.dropout = nn.Dropout(p=0.5)
-        self.relu = nn.ReLU()
-        self.sigmoid = nn.Sigmoid()
+        
+        # Improved regularization
+        self.dropout1 = nn.Dropout(p=0.2)
+        self.dropout2 = nn.Dropout(p=0.3)
+        
+        # Change to ELU activation
+        self.activation = nn.ELU(alpha=1.0)  # alpha=1.0 is the default value
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        # Input size: (batch_size, 1, 22, 20)
-        c1 = self.relu(self.conv1(input))
-        # Output size: (batch_size, 8, 1, 20)
+        # Spatial features
+        x = self.conv1(input)
+        x = self.bn1(x)
+        x = self.activation(x)  # Using ELU
         
-        # Input size: (batch_size, 8, 1, 20)
-        c2 = self.relu(self.conv2(c1))
-        # Output size: (batch_size, 40, 1, 4)
-
-        # Flatten the output of the second convolutional layer
-        # Input size: (batch_size, 40, 1, 4)
-        c2_flat = torch.flatten(c2, start_dim=1)
-        # Output size: (batch_size, 160)
-
-        x = self.dropout(c2_flat)
-
-        x = self.sigmoid(self.fc0(x))
-
-        # Input size: (batch_size, 160)
-        f3 = self.sigmoid(self.fc1(x))
-        # Output size: (batch_size, 100)
-
-        # Input size: (batch_size, 100)
-        output = self.fc2(f3)
-        # Output size: (batch_size, 5)
-
+        # Temporal features
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.activation(x)  # Using ELU
+        
+        # Flatten
+        x = torch.flatten(x, start_dim=1)
+        x = self.dropout1(x)
+        
+        # Dense layers
+        x = self.fc0(x)
+        x = self.activation(x)  # Using ELU
+        x = self.dropout2(x)
+        
+        x = self.fc1(x)
+        x = self.activation(x)  # Using ELU
+        
+        output = self.fc2(x)
         return output
 
 
-if __name__ == "__main__":
-    device = torch.device("cpu")
+class EarlyStopping:
+    def __init__(self, patience=7, min_delta=0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.best_loss = None
+        self.early_stop = False
+        
+    def __call__(self, val_loss):
+        if self.best_loss is None:
+            self.best_loss = val_loss
+        elif val_loss > self.best_loss - self.min_delta:
+            self.counter += 1
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_loss = val_loss
+            self.counter = 0
 
-    if torch.cuda.is_available():
-        print("CUDA is available")
-        device = torch.device("cuda:0")
-
-    elif torch.xpu.is_available():
-        print("XPU is available")
-        device = torch.device("xpu:0")
-
-    # TODO - would like to customize the number of EEG channels
-    trainset, testset = BciIvDatasetFactory.create(1, 100, 95)
-    batch_size: int = 16
-
-    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
-    testloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
-
-    print(f"Trainset size: {len(trainset)}")
-    print(f"Testset size: {len(testset)}")
-
-    classes = ('Rest', 'Left', 'Right', 'Feet', 'Tongue')
-
-    net = Net()
-
-    # Move the network to the GPU if available
-    net.to(device)
-
-    criterion = nn.CrossEntropyLoss()
-
-    # See: https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
-    optimizer = optim.Adam(net.parameters(), lr=0.001, weight_decay=0.0001)
-
-    for epoch in range(15):
-        running_loss: float = 0.0
-        correct: int = 0
-        total: int = 0
-
-        for i, data in enumerate(trainloader, 0):
-            # Move data to the GPU if available
-            inputs, labels = data[0].to(device), data[1].to(device)
-
-            # Zero the parameter gradients
+def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, device, num_epochs=15):
+    history = {
+        'train_loss': [], 'train_acc': [],
+        'val_loss': [], 'val_acc': [],
+        'lr': []
+    }
+    early_stopping = EarlyStopping(patience=7, min_delta=0.001)
+    best_val_acc = 0.0
+    
+    # Initialize scaler based on device type
+    if device.type == 'cuda':
+        scaler = torch.amp.GradScaler('cuda')
+        use_amp = True
+    else:
+        use_amp = False
+    
+    for epoch in tqdm(range(num_epochs)):
+        # Training phase
+        model.train()
+        train_loss = 0
+        train_correct = 0
+        train_total = 0
+        
+        for inputs, labels in train_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            
             optimizer.zero_grad()
-
-            # Need to add a channel dimension to the input tensor, since the kernels are defined
-            # as 2 dimensional, even though they are vectors.
-            outputs = net(inputs.unsqueeze(1))
-
-            # Record the number of correct predictions for training accuracy calculation
-            # torch.max returns the maximum values along the specified axis, 
-            # and the indices of the maximum values. Only need the indices, so the second
-            # return value is stored in the predicted variable
+            
+            # Handle both CPU and GPU cases
+            if use_amp:
+                with torch.amp.autocast(device_type=device.type):
+                    outputs = model(inputs.unsqueeze(1))
+                    loss = criterion(outputs, labels)
+                
+                scaler.scale(loss).backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                outputs = model(inputs.unsqueeze(1))
+                loss = criterion(outputs, labels)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                optimizer.step()
+            
+            train_loss += loss.item()
             _, predicted = torch.max(outputs, 1)
-
-            # The total number of predictions made in this iteration is the batch size
-            total += labels.size(0)
-
-            # A label is an index in the classes list - so the number of correct predictions are
-            # the number of times the predicted index matches the label
-            correct += (predicted == labels).sum().item()
-
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-
-            running_loss += loss.item()
-
-            if i % 200 == 199:
-                print(f"[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 200:.3f}, accuracy: {100 * correct / total:.2f}%")
-                running_loss = 0.0
-                correct = 0
-                total = 0
+            train_total += labels.size(0)
+            train_correct += (predicted == labels).sum().item()
+        
+        # Calculate training metrics
+        avg_train_loss = train_loss/len(train_loader)
+        train_accuracy = 100.*train_correct/train_total
+        
+        # Validation phase
+        model.eval()
+        val_loss = 0
+        val_correct = 0
+        val_total = 0
+        
+        with torch.no_grad():
+            for inputs, labels in val_loader:
+                inputs, labels = inputs.to(device), labels.to(device)
+                outputs = model(inputs.unsqueeze(1))
+                loss = criterion(outputs, labels)
+                
+                val_loss += loss.item()
+                _, predicted = torch.max(outputs, 1)
+                val_total += labels.size(0)
+                val_correct += (predicted == labels).sum().item()
+        
+        # Calculate validation metrics
+        avg_val_loss = val_loss/len(val_loader)
+        val_accuracy = 100.*val_correct/val_total
+        
+        # Record metrics
+        history['train_loss'].append(avg_train_loss)
+        history['train_acc'].append(train_accuracy)
+        history['val_loss'].append(avg_val_loss)
+        history['val_acc'].append(val_accuracy)
+        
+        # Print progress clearly
+        print(f'\nEpoch {epoch+1}/{num_epochs}:')
+        print(f'Train Loss: {avg_train_loss:.3f}, Train Acc: {train_accuracy:.2f}%')
+        print(f'Val Loss: {avg_val_loss:.3f}, Val Acc: {val_accuracy:.2f}%')
+        
+        # Save best model
+        if val_accuracy > best_val_acc:
+            best_val_acc = val_accuracy
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'val_acc': best_val_acc,
+            }, f'ELU_best_temp.pth')
+        
+        # Early stopping check
+        early_stopping(avg_val_loss)
+        if early_stopping.early_stop:
+            print("\nEarly stopping triggered")
+            break
+        
+        # Learning rate scheduling
+        scheduler.step(avg_val_loss)
+        current_lr = optimizer.param_groups[0]['lr']
+        history['lr'].append(current_lr)
     
-    print("Finished Training")
+    return history, best_val_acc
 
-    # Switch the model to evaluation mode:
-    net.eval()
-
-    correct: int = 0
-    total: int = 0
-
-    with torch.no_grad():
-        for data in testloader:
-            inputs, labels = data[0].to(device), data[1].to(device)
-
-            outputs = net(inputs.unsqueeze(1))
-
-            _, predicted = torch.max(outputs, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-
-    print(f"Test Accuracy: {100 * correct / total:.2f}%")
+def plot_training_results(histories):
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
     
-    save = input("Do you want to save the model? (y/n): ")
-    if save.lower() != "y":
-        print("Model not saved")
-        exit()
+    for idx, result in enumerate(results):
+        history = result['history']
+        config = result['config']
+        
+        axes[0,0].plot(history['train_loss'], label=f'Config {idx+1}')
+        axes[0,1].plot(history['val_loss'], label=f'Config {idx+1}')
+        axes[1,0].plot(history['train_acc'], label=f'Config {idx+1}')
+        axes[1,1].plot(history['val_acc'], label=f'Config {idx+1}')
+    
+    axes[0,0].set_title('Training Loss')
+    axes[0,1].set_title('Validation Loss')
+    axes[1,0].set_title('Training Accuracy')
+    axes[1,1].set_title('Validation Accuracy')
+    
+    for ax in axes.flat:
+        ax.legend()
+    
+    plt.tight_layout()
+    plt.savefig('ELU_training_results.png')
+    plt.close()
 
-    # Save the model for later use
-    torch.save(net.state_dict(), "./eeg_net.pth")
+if __name__ == "__main__":
+    print("Starting program...")
+    # Check if CUDA is available and print more detailed device info
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+    if device.type == 'cuda':
+        print(f"GPU Device: {torch.cuda.get_device_name(0)}")
+        print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
+    else:
+        print("Running on CPU")
+    
+    # Get data with k-fold splits
+    print("Loading dataset...")
+    features, labels, kfold = BciIvDatasetFactory.create_k_fold(1, 100, 95, k_folds=5)
+    
+    # K-fold cross validation
+    fold_results = []
+    best_fold_acc = 0.0
+    best_fold = 0
+    
+    for fold, (train_idx, val_idx) in enumerate(kfold.split(features)):
+        print(f'\nStarting Fold {fold+1}/5')
+        try:
+            # Clear GPU memory before each fold
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            
+            print(f"Creating datasets for fold {fold+1}...")
+            train_dataset = BciIvDataset(
+                features.iloc[train_idx], 
+                labels.iloc[train_idx], 
+                window_size=100
+            )
+            val_dataset = BciIvDataset(
+                features.iloc[val_idx], 
+                labels.iloc[val_idx], 
+                window_size=100
+            )
+            
+            trainloader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+            valloader = DataLoader(val_dataset, batch_size=16, shuffle=False)
+            
+            print(f"Initializing model for fold {fold+1}...")
+            model = Net().to(device)
+            criterion = nn.CrossEntropyLoss()
+            optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.00005)
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer,
+                mode='min',
+                patience=3,
+                factor=0.1,
+                min_lr=1e-6
+            )
+            
+            print(f"Training fold {fold+1}...")
+            history, fold_val_acc = train_model(model, trainloader, valloader, criterion, optimizer, scheduler, device)
+            fold_results.append(fold_val_acc)
+            
+            print(f"Fold {fold+1} completed with validation accuracy: {fold_val_acc:.2f}%")
+            
+            # Save results
+            print(f"Saving results for fold {fold+1}...")
+            np.save(f'ELU_fold_{fold+1}_history.npy', history)
+            
+            # Keep track of best performing fold
+            if fold_val_acc > best_fold_acc:
+                best_fold_acc = fold_val_acc
+                best_fold = fold + 1
+                # Rename the best model from this fold
+                import os
+                if os.path.exists('ELU_best_temp.pth'):
+                    os.replace('ELU_best_temp.pth', f'ELU_best_fold_{best_fold}.pth')
+            else:
+                # Remove temporary model if it's not the best
+                if os.path.exists('ELU_best_temp.pth'):
+                    os.remove('ELU_best_temp.pth')
+            
+            # Clear model from GPU
+            del model
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                
+        except Exception as e:
+            print(f"Error in fold {fold+1}: {str(e)}")
+            continue
+    
+    if fold_results:
+        print(f'\nK-fold cross validation results:')
+        print(f'Average accuracy: {np.mean(fold_results):.2f}%')
+        print(f'Std deviation: {np.std(fold_results):.2f}%')
+        print("\nIndividual fold accuracies:")
+        for i, acc in enumerate(fold_results, 1):
+            print(f"Fold {i}: {acc:.2f}%")
+        print(f"\nBest model saved from fold {best_fold} with accuracy: {best_fold_acc:.2f}%")
+    else:
+        print("No results were collected. All folds failed.")
+    
+    # Hyperparameter configurations to try
+    configs = [
+        {
+            'batch_size': 16,
+            'lr': 0.001,
+            'weight_decay': 0.00005,
+            'dropout1': 0.2,
+            'dropout2': 0.3
+        },
+        {
+            'batch_size': 32,
+            'lr': 0.0005,
+            'weight_decay': 0.00001,
+            'dropout1': 0.3,
+            'dropout2': 0.4
+        }
+    ]
+    
+    results = []
+    
+    for config_idx, config in enumerate(configs):
+        print(f"\nTrying configuration {config_idx + 1}")
+        print(config)
+        
+        trainloader = DataLoader(
+            train_dataset, 
+            batch_size=config['batch_size'],
+            shuffle=True,
+            num_workers=4,
+            pin_memory=True
+        )
+        
+        model = Net().to(device)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(
+            model.parameters(),
+            lr=config['lr'],
+            weight_decay=config['weight_decay']
+        )
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode='min',
+            patience=3,
+            factor=0.1,
+            min_lr=1e-6
+        )
+        
+        history, val_acc = train_model(
+            model, trainloader, valloader,
+            criterion, optimizer, scheduler,
+            device
+        )
+        
+        results.append({
+            'config': config,
+            'val_acc': val_acc,
+            'history': history
+        })
+    
+    plot_training_results(results)
