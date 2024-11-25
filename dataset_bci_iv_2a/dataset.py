@@ -239,59 +239,11 @@ class EnhancedPreprocessing:
 
 class BciIvDatasetFactory:
     @staticmethod
-<<<<<<< HEAD
-    def create(subject_number: int, window_size: int, window_overlap: int) -> tuple[BciIvDataset, BciIvDataset]:
-        """
-        Returns a tuple of two BciIvDataset objects: [training, testing].
-        """
-        
-        if subject_number < 1 or subject_number > 9:
-            raise ValueError(f"Subject number must be between 1 and 9, but got {subject_number}")
-        
-        if window_size < 1:
-            raise ValueError(f"Window size must be at least 1, but got {window_size}")
-
-        if window_overlap >= window_size:
-            raise ValueError(f"Window overlap must be less than window size, but got window size: {window_size}, window overlap: {window_overlap}")
-        
-        evaluation_csv_parser: BciIvCsvParser = BciIvCsvParser(f"dataset_bci_iv_2a/A0{subject_number}E.csv")
-        evaluation_df: pd.DataFrame = evaluation_csv_parser.get_dataframe()
-        
-        # Last row of the DataFrame should contain the largest recording index
-        recording_offset: int = evaluation_df.iloc[-1]["Recording"] + 1
-
-        # Since this is a separate CSV file, the recording index starts from 0, so need to add the largest recording index from the previous CSV file.
-        training_csv_parser: BciIvCsvParser = BciIvCsvParser(f"dataset_bci_iv_2a/A0{subject_number}T.csv")
-        training_df: pd.DataFrame = training_csv_parser.get_dataframe()
-        training_df["Recording"] += recording_offset
-
-        # Don't care about EOG
-        raw_df: pd.DataFrame = pd.concat([evaluation_df, training_df]).drop(columns=["EOGL", "EOGM", "EOGR"])
-
-        # scalar: StandardScaler = StandardScaler()
-        # features: pd.DataFrame = raw_df.drop(columns=["Label", "Recording"])
-        # normalized_df: pd.DataFrame = pd.DataFrame(scalar.fit_transform(features), columns=features.columns)
-        # normalized_df["Label"] = raw_df["Label"].values
-        labeled_df: pd.DataFrame = raw_df.drop(columns=["Recording"])
-
-        # The dictionary object from which a dataframe will be created.
-        # Stores windows of data per EEG column: each window is a list of floating point values.
-        # Each window has an associated label.
-        windowed_data: dict[str, list[list[float]] | list[float]] = {header: [] for header in labeled_df.columns}
-        
-        # Group the dataframe by recording index - this is important, as windows must be created from sequential samples.
-        df_group_iterable = labeled_df.groupby(raw_df["Recording"].values)
-
-        # For each recording index, create a dictionary of windowed data, then append it to the larger dictionary.
-        for _, df in df_group_iterable:
-            windowed_dict: dict[str, list[list[float]] | list[float]] = create_windowed_dictionary(df, window_size, window_overlap)
-=======
     def create_k_fold(subject_number: int, window_size: int, window_overlap: int, k_folds: int = 5) -> Tuple[pd.DataFrame, pd.Series, KFold]:
         try:
             subject_str = f"0{subject_number}" if subject_number < 10 else str(subject_number)
             evaluation_csv_parser = BciIvCsvParser(f"dataset_bci_iv_2a/A{subject_str}E.csv")
             training_csv_parser = BciIvCsvParser(f"dataset_bci_iv_2a/A{subject_str}T.csv")
->>>>>>> advBCI2a
             
             evaluation_df = evaluation_csv_parser.get_dataframe()
             training_df = training_csv_parser.get_dataframe()
@@ -360,49 +312,3 @@ class BciIvDatasetFactory:
         except Exception as e:
             raise Exception(f"Error processing dataset: {str(e)}") from e
 
-<<<<<<< HEAD
-        # Pandas supports directly creating a DataFrame from a dictionary of lists.
-        windowed_df: pd.DataFrame = pd.DataFrame(windowed_data)
-
-        train, test = train_test_split(windowed_df, test_size=0.15, random_state=42)
-
-        return BciIvDataset(train), BciIvDataset(test)
-
-
-if __name__ == "__main__":
-    # Testing the dataset creation process on one CSV file:
-    subject_number: int = 2
-
-    evaluation_csv_parser: BciIvCsvParser = BciIvCsvParser(f"A0{subject_number}E.csv")
-    evaluation_df: pd.DataFrame = evaluation_csv_parser.get_dataframe()
-
-    raw_df: pd.DataFrame = evaluation_df.drop(columns=["EOGL", "EOGM", "EOGR"])
-    df_group_iterator = iter(raw_df.drop(columns=["Recording"]).groupby(raw_df["Recording"].values))
-
-    _, df = next(df_group_iterator)
-    windowed_dict: dict[str, list[list[float]] | list[float]] = create_windowed_dictionary(df, 100, 95)
-
-    windowed_df: pd.DataFrame = pd.DataFrame(windowed_dict)
-
-    train, _ = train_test_split(windowed_df, test_size=0.15, random_state=42)
-
-    trainset = BciIvDataset(train)
-
-    print(f"Trainset size: {len(trainset)}")
-
-    trainloader = DataLoader(trainset, batch_size=16, shuffle=True)
-    trainiter = iter(trainloader)
-
-    # Should return tensor containing batch_size samples, and a tensor containing batch_size labels
-    sample, label = next(trainiter)
-
-    print(f"Sample shape: {sample.shape}")
-    print(f"Label shape: {label.shape}")
-
-    # The above shape can be used with CNN, but LSTM expects input in the form of (batch_size, sequence_length, num_features)
-    lstm_sample = sample.permute(0, 2, 1)
-
-    print(f"LSTM sample shape: {lstm_sample.shape}")
-    print(f"Label shape: {label.shape}")
-=======
->>>>>>> advBCI2a
