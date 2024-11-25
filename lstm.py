@@ -22,12 +22,17 @@ class LSTM(nn.Module):
         # The input to the Neural Network will be a tensor of size:
         # (window_size, num_eeg_channels)
 
-        # LSTM Layer - going to use 2 layers based on the literature review
-        self.lstm = nn.LSTM(input_size=22, hidden_size=64, num_layers=2, batch_first=True, dropout=0.5)
+        self.lstm = nn.LSTM(
+            input_size=22,
+            hidden_size=128,
+            num_layers=1,
+            batch_first=True,
+            bidirectional=True
+        )
 
         self.dropout = nn.Dropout(p=0.5)
 
-        self.fc0 = nn.LazyLinear(out_features=500)
+        self.fc0 = nn.LazyLinear(out_features=1000)
         self.fc1 = nn.LazyLinear(out_features=200)
         self.fc2 = nn.LazyLinear(out_features=5)
 
@@ -136,4 +141,4 @@ if __name__ == "__main__":
         exit()
 
     # Save the model for later use
-    torch.save(net.state_dict(), "./eeg_lstm.pth")
+    torch.save(lstm.state_dict(), "./eeg_lstm.pth")
