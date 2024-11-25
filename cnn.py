@@ -100,7 +100,7 @@ if __name__ == "__main__":
     # See: https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
     optimizer = optim.Adam(net.parameters(), lr=0.001, weight_decay=0.0001)
 
-    for epoch in range(30):
+    for epoch in range(20):
         running_loss: float = 0.0
         correct: int = 0
         total: int = 0
