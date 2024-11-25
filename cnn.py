@@ -77,7 +77,7 @@ if __name__ == "__main__":
         device = torch.device("xpu:0")
 
     # TODO - would like to customize the number of EEG channels
-    trainset, testset = BciIvDatasetFactory.create(1, 100, 90)
+    trainset, testset = BciIvDatasetFactory.create(1, 100, 95)
     batch_size: int = 16
 
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
@@ -141,6 +141,9 @@ if __name__ == "__main__":
     
     print("Finished Training")
 
+    # Switch the model to evaluation mode:
+    net.eval()
+
     correct: int = 0
     total: int = 0
 
@@ -156,5 +159,10 @@ if __name__ == "__main__":
 
     print(f"Test Accuracy: {100 * correct / total:.2f}%")
     
+    save = input("Do you want to save the model? (y/n): ")
+    if save.lower() != "y":
+        print("Model not saved")
+        exit()
+
     # Save the model for later use
     torch.save(net.state_dict(), "./eeg_net.pth")
