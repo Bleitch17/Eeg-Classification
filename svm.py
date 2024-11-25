@@ -152,11 +152,11 @@ if __name__ == "__main__":
     print("Total features:", len(flat_df.columns) - 1)  # -1 for Label column
     
     experiments = [
-        ("Resting vs Left Hand (C3)", experiment_resting_vs_left_hand_c3),
-        ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
-        ("Resting vs Left/Right Hand (2 Channel)", experiment_resting_vs_left_right_hand_2_channel),
-        ("Resting vs All Single Channel", experiment_resting_vs_all_single_channel),
-        ("Resting vs All 5 Channel", experiment_resting_vs_all_5_channel),
+        # ("Resting vs Left Hand (C3)", experiment_resting_vs_left_hand_c3),
+        # ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
+        # ("Resting vs Left/Right Hand (2 Channel)", experiment_resting_vs_left_right_hand_2_channel),
+        # ("Resting vs All Single Channel", experiment_resting_vs_all_single_channel),
+        # ("Resting vs All 5 Channel", experiment_resting_vs_all_5_channel),
         ("Resting vs All", experiment_resting_vs_all),
     ]
 

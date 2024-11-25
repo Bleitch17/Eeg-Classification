@@ -39,5 +39,5 @@ def plot_fold_history(history):
     plt.show()
 
 
-history = load_training_history(4)  # TODO: Change this to the fold number you want to plot
+history = load_training_history(5)  # TODO: Change this to the fold number you want to plot
 plot_fold_history(history)
