@@ -5,7 +5,7 @@ import torch
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 
 CSV_DELIMITER: str = ","
@@ -79,23 +79,24 @@ class BciIvDataset(Dataset):
     for use with the PyTorch package.
     """
 
-    def __init__(self, data: pd.DataFrame, labels: pd.Series, window_size: int) -> None:
+    def __init__(self, labeled_data: pd.DataFrame) -> None:
         """
         The data parameter should be of size (M, 22) where N is the number of samples, and 22 is the number of EEG channels.
         The labels parameter should be of size N.
         """
-        self.data: pd.DataFrame = data
-        self.labels: pd.Series = labels
-        self.window_size: int = window_size
+        self.labels: pd.Series = labeled_data["Label"]
+        self.data: pd.DataFrame = labeled_data.drop(columns=["Label"])
 
     def __len__(self) -> int:
         return len(self.data)
     
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
+        # Join the channels along the first axis to create a ndarray of shape (num_channels, window_size)
         array = np.stack(self.data.iloc[idx].values)
 
         # Note - for each item, labels should return an index into a list of classes.
         # In this case, the classes (in order) are: "Rest", "Left", "Right", "Feet", and "Tongue"
+        # The tensor has shape (num_channels, window_size)
         return torch.tensor(array, dtype=torch.float32), int(self.labels.iloc[idx])
 
 
@@ -152,6 +153,7 @@ class BciIvDatasetFactory:
         # Last row of the DataFrame should contain the largest recording index
         recording_offset: int = evaluation_df.iloc[-1]["Recording"] + 1
 
+        # Since this is a separate CSV file, the recording index starts from 0, so need to add the largest recording index from the previous CSV file.
         training_csv_parser: BciIvCsvParser = BciIvCsvParser(f"dataset_bci_iv_2a/A0{subject_number}T.csv")
         training_df: pd.DataFrame = training_csv_parser.get_dataframe()
         training_df["Recording"] += recording_offset
@@ -165,19 +167,61 @@ class BciIvDatasetFactory:
         # normalized_df["Label"] = raw_df["Label"].values
         labeled_df: pd.DataFrame = raw_df.drop(columns=["Recording"])
 
+        # The dictionary object from which a dataframe will be created.
+        # Stores windows of data per EEG column: each window is a list of floating point values.
+        # Each window has an associated label.
         windowed_data: dict[str, list[list[float]] | list[float]] = {header: [] for header in labeled_df.columns}
+        
+        # Group the dataframe by recording index - this is important, as windows must be created from sequential samples.
         df_group_iterable = labeled_df.groupby(raw_df["Recording"].values)
 
+        # For each recording index, create a dictionary of windowed data, then append it to the larger dictionary.
         for _, df in df_group_iterable:
             windowed_dict: dict[str, list[list[float]] | list[float]] = create_windowed_dictionary(df, window_size, window_overlap)
             
             for header in windowed_dict:
                 windowed_data[header].extend(windowed_dict[header])
 
+        # Pandas supports directly creating a DataFrame from a dictionary of lists.
         windowed_df: pd.DataFrame = pd.DataFrame(windowed_data)
-        labels: pd.Series = windowed_df["Label"]
-        windowed_df: pd.DataFrame = windowed_df.drop(columns=["Label"])
 
-        X_train, X_test, y_train, y_test = train_test_split(windowed_df, labels, test_size=0.15, random_state=42)
+        train, test = train_test_split(windowed_df, test_size=0.15, random_state=42)
 
-        return BciIvDataset(X_train, y_train, window_size), BciIvDataset(X_test, y_test, window_size)
+        return BciIvDataset(train), BciIvDataset(test)
+
+
+if __name__ == "__main__":
+    # Testing the dataset creation process on one CSV file:
+    subject_number: int = 2
+
+    evaluation_csv_parser: BciIvCsvParser = BciIvCsvParser(f"A0{subject_number}E.csv")
+    evaluation_df: pd.DataFrame = evaluation_csv_parser.get_dataframe()
+
+    raw_df: pd.DataFrame = evaluation_df.drop(columns=["EOGL", "EOGM", "EOGR"])
+    df_group_iterator = iter(raw_df.drop(columns=["Recording"]).groupby(raw_df["Recording"].values))
+
+    _, df = next(df_group_iterator)
+    windowed_dict: dict[str, list[list[float]] | list[float]] = create_windowed_dictionary(df, 100, 95)
+
+    windowed_df: pd.DataFrame = pd.DataFrame(windowed_dict)
+
+    train, _ = train_test_split(windowed_df, test_size=0.15, random_state=42)
+
+    trainset = BciIvDataset(train)
+
+    print(f"Trainset size: {len(trainset)}")
+
+    trainloader = DataLoader(trainset, batch_size=16, shuffle=True)
+    trainiter = iter(trainloader)
+
+    # Should return tensor containing batch_size samples, and a tensor containing batch_size labels
+    sample, label = next(trainiter)
+
+    print(f"Sample shape: {sample.shape}")
+    print(f"Label shape: {label.shape}")
+
+    # The above shape can be used with CNN, but LSTM expects input in the form of (batch_size, sequence_length, num_features)
+    lstm_sample = sample.permute(0, 2, 1)
+
+    print(f"LSTM sample shape: {lstm_sample.shape}")
+    print(f"Label shape: {label.shape}")

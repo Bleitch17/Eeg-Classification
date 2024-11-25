@@ -37,24 +37,26 @@ class Net(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        # Input size: (batch_size, 1, 22, 20)
+        # Input size: (batch_size, 1, 22, 100)
         c1 = self.relu(self.conv1(input))
-        # Output size: (batch_size, 8, 1, 20)
+        # Output size: (batch_size, 8, 1, 100)
         
-        # Input size: (batch_size, 8, 1, 20)
+        # Input size: (batch_size, 8, 1, 100)
         c2 = self.relu(self.conv2(c1))
-        # Output size: (batch_size, 40, 1, 4)
+        # Output size: (batch_size, 40, 1, 71)
 
         # Flatten the output of the second convolutional layer
-        # Input size: (batch_size, 40, 1, 4)
+        # Input size: (batch_size, 40, 1, 71)
         c2_flat = torch.flatten(c2, start_dim=1)
-        # Output size: (batch_size, 160)
+        # Output size: (batch_size, 40 * 71)
 
         x = self.dropout(c2_flat)
 
+        # Input size: (batch_size, 40 * 71)
         x = self.sigmoid(self.fc0(x))
+        # Output size: (batch_size, 200)
 
-        # Input size: (batch_size, 160)
+        # Input size: (batch_size, 200)
         f3 = self.sigmoid(self.fc1(x))
         # Output size: (batch_size, 100)
 
@@ -77,7 +79,7 @@ if __name__ == "__main__":
         device = torch.device("xpu:0")
 
     # TODO - would like to customize the number of EEG channels
-    trainset, testset = BciIvDatasetFactory.create(1, 100, 95)
+    trainset, testset = BciIvDatasetFactory.create(1, 100, 90)
     batch_size: int = 16
 
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
@@ -98,7 +100,7 @@ if __name__ == "__main__":
     # See: https://pytorch.org/docs/stable/generated/torch.optim.Adam.html
     optimizer = optim.Adam(net.parameters(), lr=0.001, weight_decay=0.0001)
 
-    for epoch in range(15):
+    for epoch in range(30):
         running_loss: float = 0.0
         correct: int = 0
         total: int = 0
