@@ -1,17 +1,19 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import time
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-import numpy as np
-from typing import Dict, List
 
 from dataset_bci_iv_2a.dataset import (
-    BciIvDatasetFactory,
     BciIvDataset
 )
+from device import get_system_device
 from torch.utils.data import DataLoader
+from tqdm import tqdm
+from typing import Dict, List
+from sklearn.model_selection import KFold
 
 
 class Net(nn.Module):
@@ -221,21 +223,24 @@ def plot_training_results(histories):
     plt.savefig('ELU_training_results.png')
     plt.close()
 
+
 if __name__ == "__main__":
-    print("Starting program...")
-    # Check if CUDA is available and print more detailed device info
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-    if device.type == 'cuda':
-        print(f"GPU Device: {torch.cuda.get_device_name(0)}")
-        print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
-    else:
-        print("Running on CPU")
-    
+    device = get_system_device()
+
     # Get data with k-fold splits
     print("Loading dataset...")
-    features, labels, kfold = BciIvDatasetFactory.create_k_fold(1, 100, 95, k_folds=5)
+
+    # NOTE - can produce by running "python dataset_bci_iv_2a/dataset.py 1 100 90"
+    df = pd.read_parquet("dataset_bci_iv_2a/A01_100_90.parquet", engine="pyarrow")
     
+    print(df.head(3))
+
+    labels: pd.Series = df["Label"]
+    features: pd.DataFrame = df.drop(columns=["Label"])
+
+    k_folds = 5
+    kfold = KFold(n_splits=k_folds, shuffle=True, random_state=42)
+
     # K-fold cross validation
     fold_results = []
     best_fold_acc = 0.0
@@ -245,19 +250,20 @@ if __name__ == "__main__":
         print(f'\nStarting Fold {fold+1}/5')
         try:
             # Clear GPU memory before each fold
-            if torch.cuda.is_available():
+            if "cuda" in device.type:
                 torch.cuda.empty_cache()
             
+            elif "xpu" in device.type:
+                torch.xpu.empty_cache()
+
             print(f"Creating datasets for fold {fold+1}...")
             train_dataset = BciIvDataset(
                 features.iloc[train_idx], 
-                labels.iloc[train_idx], 
-                window_size=100
+                labels.iloc[train_idx]
             )
             val_dataset = BciIvDataset(
                 features.iloc[val_idx], 
-                labels.iloc[val_idx], 
-                window_size=100
+                labels.iloc[val_idx]
             )
             
             trainloader = DataLoader(train_dataset, batch_size=16, shuffle=True)

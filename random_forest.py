@@ -7,8 +7,6 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from sklearn.preprocessing import StandardScaler
 from typing import Callable
 
-from dataset_bci_iv_2a.dataset import BciIvDatasetFactory
-
 # Type aliases
 AccuracyScore = float
 ConfusionMatrix = list[list[int]]
@@ -200,42 +198,30 @@ def experiment_resting_vs_all_5_channel(df: pd.DataFrame) -> tuple[AccuracyScore
     return train_random_forest(X, y)
 
 if __name__ == "__main__":
-    # Use new dataset factory
-    features, labels, _ = BciIvDatasetFactory.create_k_fold(1, 100, 95)
-    
-    # Convert windowed data to flat format (preserving temporal information)
-    flat_df = pd.DataFrame()
-    for col in features.columns:
-        # Flatten each window into 100 separate features
-        features_df = features[col].apply(lambda x: pd.Series(x))
-        # Add column prefix to avoid name conflicts
-        features_df.columns = [f'{col}_t{i}' for i in range(len(features_df.columns))]
-        flat_df = pd.concat([flat_df, features_df], axis=1)
-    flat_df["Label"] = labels
-    
-    filtered_df = flat_df  # Already preprocessed
+    # NOTE - can produce by running "python dataset_bci_iv_2a/dataset.py 1 100 90 --flatten"
+    flat_df = pd.read_parquet("dataset_bci_iv_2a/A01_100_90_flattened.parquet")
 
     experiments: list[tuple[str, Callable[[pd.DataFrame], tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]]]] = [
-        # ("Initial (All Channels)", experiment_initial),
+        ("Initial (All Channels)", experiment_initial),
         # ("No Rest (All Channels)", experiment_no_rest),
         # ("5 Channel", experiment_5_channel),
         # ("5 Channel No Rest", experiment_5_channel_no_rest),
         # ("Left vs Right Hand", experiment_left_right_hand),
         # # ("Left vs Right Hand 5 Channel", experiment_left_right_hand_5_channel),
         # ("Left vs Right Hand 2 Channel", experiment_left_right_hand_2_channel),
-        ("Resting vs Left Hand", experiment_resting_vs_left_hand),
-        ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
+        # ("Resting vs Left Hand", experiment_resting_vs_left_hand),
+        # ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
         # ("Resting vs Left Hand C3", experiment_resting_vs_left_hand_c3),
         # ("Resting vs Left Hand C4", experiment_resting_vs_left_hand_c4),
-        ("Resting vs Left/Right Hand 2 Channel", experiment_resting_vs_left_right_hand_2_channel),
-        ("Resting vs All Single Channel", experiment_resting_vs_all_single_channel),
-        ("Resting vs All 5 Channel", experiment_resting_vs_all_5_channel),
-        ("Resting vs All", experiment_resting_vs_all)
+        # ("Resting vs Left/Right Hand 2 Channel", experiment_resting_vs_left_right_hand_2_channel),
+        # ("Resting vs All Single Channel", experiment_resting_vs_all_single_channel),
+        # ("Resting vs All 5 Channel", experiment_resting_vs_all_5_channel),
+        # ("Resting vs All", experiment_resting_vs_all)
     ]
 
     for experiment_name, experiment_function in experiments:
         print(f"\nRunning experiment: {experiment_name}")
-        accuracy, conf_matrix, class_report = experiment_function(filtered_df)
+        accuracy, conf_matrix, class_report = experiment_function(flat_df)
         print(f"Average accuracy: {accuracy:.2f}")
         print("\nConfusion Matrix:")
         print(conf_matrix)

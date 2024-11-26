@@ -3,6 +3,7 @@
 *.gdf
 *.mat
 *.csv
+*.parquet
 BCICIV_2a_gdf
 true_labels
 

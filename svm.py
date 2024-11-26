@@ -6,8 +6,6 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from sklearn.preprocessing import StandardScaler
 from typing import Callable, Tuple, List
 
-from dataset_bci_iv_2a.dataset import BciIvDatasetFactory
-
 # Type aliases
 AccuracyScore = float
 ConfusionMatrix = list[list[int]]
@@ -52,6 +50,11 @@ def train_svm(X: pd.DataFrame, y: pd.DataFrame) -> tuple[AccuracyScore, Confusio
     print(f"Std deviation: {np.std(fold_accuracies):.2f}")
     
     return mean_accuracy, final_confusion_matrix, final_classification_report
+
+def experiment_initial(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
+    X = df.drop(columns=["Label"])
+    y = df["Label"]
+    return train_svm(X, y)
 
 def experiment_resting_vs_left_hand_c3(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:
     # Extract resting state and left hand data
@@ -131,33 +134,21 @@ def experiment_resting_vs_all_single_channel(df: pd.DataFrame) -> tuple[Accuracy
     return train_svm(X, y)
 
 if __name__ == "__main__":
-    # Use dataset factory
-    features, labels, _ = BciIvDatasetFactory.create_k_fold(1, 100, 95)
-    
-    # Convert windowed data to flat format (preserving temporal information)
-    flat_df = pd.DataFrame()
-    for col in features.columns:
-        # Skip Recording column if present
-        if col == 'Recording':
-            continue
-        # Flatten each window into 100 separate features
-        features_df = features[col].apply(lambda x: pd.Series(x))
-        # Add column prefix to avoid name conflicts
-        features_df.columns = [f'{col}_t{i}' for i in range(len(features_df.columns))]
-        flat_df = pd.concat([flat_df, features_df], axis=1)
-    flat_df["Label"] = labels
+    # NOTE - can produce by running "python dataset_bci_iv_2a/dataset.py 1 100 90 --flatten"
+    flat_df = pd.read_parquet("dataset_bci_iv_2a/A01_100_90_flattened.parquet")
     
     # Verify columns
     print("Columns in dataset:", flat_df.columns[:5], "...", flat_df.columns[-5:])
     print("Total features:", len(flat_df.columns) - 1)  # -1 for Label column
     
     experiments = [
-        ("Resting vs Left Hand (C3)", experiment_resting_vs_left_hand_c3),
-        ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
-        ("Resting vs Left/Right Hand (2 Channel)", experiment_resting_vs_left_right_hand_2_channel),
-        ("Resting vs All Single Channel", experiment_resting_vs_all_single_channel),
-        ("Resting vs All 5 Channel", experiment_resting_vs_all_5_channel),
-        ("Resting vs All", experiment_resting_vs_all),
+        ("Initial", experiment_initial),
+        # ("Resting vs Left Hand (C3)", experiment_resting_vs_left_hand_c3),
+        # ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
+        # ("Resting vs Left/Right Hand (2 Channel)", experiment_resting_vs_left_right_hand_2_channel),
+        # ("Resting vs All Single Channel", experiment_resting_vs_all_single_channel),
+        # ("Resting vs All 5 Channel", experiment_resting_vs_all_5_channel),
+        # ("Resting vs All", experiment_resting_vs_all),
     ]
 
     for experiment_name, experiment_function in experiments:

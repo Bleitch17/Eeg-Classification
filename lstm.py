@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from dataset_bci_iv_2a.dataset import BciIvDatasetFactory
+from device import get_system_device
 from torch.utils.data import DataLoader
 
 
@@ -58,15 +59,8 @@ class LSTM(nn.Module):
 
 
 if __name__ == "__main__":
-    device = torch.device("cpu")
-
-    if torch.cuda.is_available():
-        print("CUDA is available")
-        device = torch.device("cuda:0")
-
-    elif torch.xpu.is_available():
-        print("XPU is available")
-        device = torch.device("xpu:0")
+    # TODO - fix this to optionally work with cross validation and any changes to the dataset.
+    device = get_system_device()
     
     trainset, testset = BciIvDatasetFactory.create(1, 100, 90)
     batch_size: int = 16
