@@ -1,0 +1,13 @@
+1st trial:
+- 100hz, 90% overlap, 100ms window
+- 16 batch size, 0.001 lr, 0.0001 weight decay, 0.3 dropout1, 0.5 dropout2
+- 10 folds, 10 epochs each
+- 1000 steps per epoch
+- 10000 steps total
+- 100000 optim steps
+- 1000000 warmup steps
+
+Issue: Overfitting, model is too complex for the data
+![alt text](image.png)
+
+

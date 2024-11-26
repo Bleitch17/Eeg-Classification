@@ -134,8 +134,8 @@ def experiment_resting_vs_all_single_channel(df: pd.DataFrame) -> tuple[Accuracy
     return train_svm(X, y)
 
 if __name__ == "__main__":
-    # NOTE - can produce by running "python dataset_bci_iv_2a/dataset.py 1 100 90 --flatten"
-    flat_df = pd.read_parquet("dataset_bci_iv_2a/A01_100_90_flattened.parquet")
+    # NOTE - can produce by running "python dataset_bci_iv_2a/dataset.py 1 100 --flatten"
+    flat_df = pd.read_parquet("dataset_bci_iv_2a/A01_100_flattened.parquet")
     
     # Verify columns
     print("Columns in dataset:", flat_df.columns[:5], "...", flat_df.columns[-5:])
@@ -143,12 +143,12 @@ if __name__ == "__main__":
     
     experiments = [
         ("Initial", experiment_initial),
-        # ("Resting vs Left Hand (C3)", experiment_resting_vs_left_hand_c3),
-        # ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
-        # ("Resting vs Left/Right Hand (2 Channel)", experiment_resting_vs_left_right_hand_2_channel),
-        # ("Resting vs All Single Channel", experiment_resting_vs_all_single_channel),
-        # ("Resting vs All 5 Channel", experiment_resting_vs_all_5_channel),
-        # ("Resting vs All", experiment_resting_vs_all),
+        ("Resting vs Left Hand (C3)", experiment_resting_vs_left_hand_c3),
+        ("Resting vs Left Hand 2 Channel", experiment_resting_vs_left_hand_2_channel),
+        ("Resting vs Left/Right Hand (2 Channel)", experiment_resting_vs_left_right_hand_2_channel),
+        ("Resting vs All Single Channel", experiment_resting_vs_all_single_channel),
+        ("Resting vs All 5 Channel", experiment_resting_vs_all_5_channel),
+        ("Resting vs All", experiment_resting_vs_all),
     ]
 
     for experiment_name, experiment_function in experiments:

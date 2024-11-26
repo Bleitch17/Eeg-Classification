@@ -110,30 +110,39 @@ class BciIvCsvParser:
 
 
 class BciIvDataset(Dataset):
-    """
-    Provides an interface for retrieving samples from the BCI Competition IV dataset,
-    for use with the PyTorch package.
-    """
-
-    def __init__(self, eeg_features: pd.DataFrame, eeg_labels: pd.Series) -> None:
-        """
-        The data parameter should be of size (M, 22) where N is the number of samples, and 22 is the number of EEG channels.
-        The labels parameter should be of size N.
-        """
-        self.labels: pd.Series = eeg_labels
-        self.data: pd.DataFrame = eeg_features
-
-    def __len__(self) -> int:
-        return len(self.data)
+    def __init__(self, features: pd.DataFrame, labels: pd.Series):
+        self.features = features
+        self.labels = labels
+        
+        # Convert labels to zero-based indexing if needed
+        if self.labels.min() == 1:
+            self.labels = self.labels - 1
+            
+        # Convert features to numpy arrays when initializing
+        self.feature_arrays = []
+        for idx in range(len(features)):
+            row = features.iloc[idx]
+            # Stack the channel arrays into a single (22, window_size) array
+            channel_arrays = [np.array(row[col], dtype=np.float32) for col in features.columns]
+            stacked_array = np.stack(channel_arrays)
+            self.feature_arrays.append(stacked_array)
     
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
-        # Join the channels along the first axis to create a ndarray of shape (num_channels, window_size)
-        array = np.stack(self.data.iloc[idx].values)
-
-        # Note - for each item, labels should return an index into a list of classes.
-        # In this case, the classes (in order) are: "Rest", "Left", "Right", "Feet", and "Tongue"
-        # The tensor has shape (num_channels, window_size)
-        return torch.tensor(array, dtype=torch.float32), int(self.labels.iloc[idx])
+    def __len__(self):
+        return len(self.labels)
+    
+    def __getitem__(self, idx):
+        # Get pre-converted features
+        features = self.feature_arrays[idx]
+        
+        # Reshape to (22, window_size) if needed
+        if len(features.shape) == 1:
+            features = features.reshape(22, -1)
+        
+        # Convert to torch tensors - add channel dimension to make it (1, 22, window_size)
+        features = torch.FloatTensor(features).unsqueeze(0)
+        label = torch.LongTensor([self.labels.iloc[idx]])[0]
+        
+        return features, label
 
 
 class EnhancedPreprocessing:
@@ -306,128 +315,138 @@ def create_windowed_dictionary(df: pd.DataFrame, window_size: int, window_overla
     return windowed_data
 
 
-def create_windowed_dataframe(df: pd.DataFrame, window_size: int, window_overlap: int, flatten: bool = False) -> pd.DataFrame:
-    """
-    Expects a dataframe with EEG columns, a label column, and a recording column.
-    Creates a new dataframe with windows of EEG data, where the number of samples in each window is determined by the window size.
-
-    If flatten is True, each time point in a window will have a distinct data column - use this mode for scikit-learn classifiers.
-    If flatten is False, each window will be a list of samples - use this mode for PyTorch models.
-
-    Returns a new dataframe with the windowed data.
-
-    TODO - add an argument for pre-processing functions to apply on the windows.
-    """
-    
-    if window_size < 1:
-        raise ValueError(f"Window size must be at least 1, but got {window_size}")
-
-    if window_overlap >= window_size:
-        raise ValueError(f"Window overlap must be less than window size")
-
-    if len(df) < window_size:
-        raise ValueError(f"DataFrame length {len(df)} is less than window size {window_size}")
-    
-    original_eeg_columns: list[str] = [column_name for column_name in df.columns if column_name not in ["Label", "Recording"]]
-
-    # Pandas will automatically convert a dictionary of lists into a DataFrame, so create a dictionary of lists to store the windowed data
-    windowed_data: dict[str, list[list[float]] | list[float]] = { }
-
-    if flatten:
-        for column_name in original_eeg_columns:
-            for sample_index in range(window_size):
-                windowed_data[f"{column_name}_{sample_index}"] = []
-
-    else:
-        windowed_data = {column_name: [] for column_name in original_eeg_columns}
-
-    # Regardless of flattening, will always have a label column
-    windowed_data["Label"] = []
-
-    df_group_iterable = df.drop(columns=["Recording"]).groupby(df["Recording"].values)
-
-    # For each recording index, create a dictionary of windowed data then append it to the larger dictionary
-    for _, df in df_group_iterable:
-        recording_windows = create_windowed_dictionary(df, window_size, window_overlap, flatten=flatten)
+class OnlinePreprocessing:
+    def __init__(self, baseline_recordings: pd.DataFrame):
+        """Initialize with baseline recordings to compute statistics"""
+        # Compute baseline statistics for each channel
+        self.channel_stats = {}
+        for column in baseline_recordings.columns:
+            if column not in ['Label', 'Recording']:
+                self.channel_stats[column] = {
+                    'mean': baseline_recordings[column].mean(),
+                    'std': baseline_recordings[column].std()
+                }
         
-        for column_name, windowed_column in recording_windows.items():
-            windowed_data[column_name].extend(windowed_column)
+    def process_window(self, window_data: np.ndarray, channel: str, fs: float = 250.0) -> np.ndarray:
+        """Process a single window of data as it would be in real-time"""
+        # 1. Bandpass filter (8-50 Hz)
+        filtered_data = butter_bandpass_filter(
+            window_data, 
+            lowcut=8.0, 
+            highcut=50.0, 
+            fs=fs
+        )
+        
+        # 2. Normalize using pre-computed channel-specific baseline statistics
+        normalized_data = (filtered_data - self.channel_stats[channel]['mean']) / self.channel_stats[channel]['std']
+        
+        return normalized_data
 
+
+def create_windowed_dataframe(df: pd.DataFrame, window_size: int, 
+                            baseline_recordings: List[int], flatten: bool = False) -> pd.DataFrame:
+    # Get baseline data
+    baseline_data = df[df['Recording'].isin(baseline_recordings)]
+    
+    # Initialize online processor with baseline data
+    processor = OnlinePreprocessing(baseline_data)
+    
+    windowed_data = []
+    label_column = "Label"
+    
+    # Explicitly exclude EOG channels and non-feature columns
+    excluded_patterns = ['EOGL', 'EOGM', 'EOGR', 'Label', 'Recording']
+    eeg_columns = [col for col in df.columns 
+                  if not any(pattern in col for pattern in excluded_patterns)]
+    
+    print("Selected channels:", len(eeg_columns))
+    print("Example channels:", eeg_columns[:5])
+    
+    # Process each recording separately
+    for recording_id in df['Recording'].unique():
+        if recording_id in baseline_recordings:
+            continue  # Skip baseline recordings
+            
+        recording_data = df[df['Recording'] == recording_id].copy()
+        
+        # Skip if recording is too short
+        if len(recording_data) < window_size:
+            continue
+            
+        # Process each window in this recording
+        for start_idx in range(0, len(recording_data) - window_size + 1, window_size):
+            window_data = {}
+            window_slice = recording_data.iloc[start_idx:start_idx + window_size]
+            
+            # Process each EEG channel
+            for channel in eeg_columns:
+                channel_data = window_slice[channel].values
+                processed_window = processor.process_window(channel_data, channel)
+                
+                if flatten:
+                    # Add each timepoint as a separate feature
+                    for t in range(window_size):
+                        window_data[f"{channel}_t{t}"] = float(processed_window[t])
+                else:
+                    # Store as numpy array directly
+                    window_data[channel] = processed_window.tolist()  # Convert to list for storage
+            
+            # Add label
+            window_data['Label'] = int(window_slice['Label'].iloc[0])
+            windowed_data.append(window_data)
+    
     return pd.DataFrame(windowed_data)
 
 
-def data(subject_number: int, window_size: int, window_overlap: int, flatten: bool = False) -> Tuple[pd.DataFrame, pd.Series]:
-    """
-    Reads both the train and evaluation csv files into DataFrames, concatenates them, and creates windows.
-
-    When flatten is True, the output can be used for scikit-learn classifiers.
-    When flatten is False, the output can be used with the BciIvDataset class for compatibility with PyTorch models.
-
-    Returns a tuple of (eeg_features, labels).
-
-    TODO - add another argument for pre-processing functions to apply on the windows.
-    """
-
-    if subject_number < 1 or subject_number > 9:
-        raise ValueError("Subject number must be between 1 and 9")
-
-    evaluation_csv_parser = BciIvCsvParser(f"dataset_bci_iv_2a/A0{subject_number}E.csv")
-    training_csv_parser = BciIvCsvParser(f"dataset_bci_iv_2a/A0{subject_number}T.csv")
+def data(subject_number: int, window_size: int, flatten: bool = False):
+    """Load and process data for a subject"""
+    # Load evaluation and training data
+    evaluation_df = pd.read_csv(f"dataset_bci_iv_2a/A0{subject_number}E.csv", delimiter=CSV_DELIMITER)
+    training_df = pd.read_csv(f"dataset_bci_iv_2a/A0{subject_number}T.csv", delimiter=CSV_DELIMITER)
     
-    evaluation_df = evaluation_csv_parser.get_dataframe()
-    training_df = training_csv_parser.get_dataframe()
-    
-    # Print actual columns for debugging
-    print("Evaluation columns:", evaluation_df.columns.tolist())
-    print("Training columns:", training_df.columns.tolist())
-    
-    # DataFrame validation
-    validate_columns(evaluation_df)
-    validate_columns(training_df)
-    
-    validate_dataframes(evaluation_df, training_df)
-    
-    # Drop EOG channels first
-    evaluation_df = evaluation_df.drop(columns=["EOGL", "EOGM", "EOGR"])
-    training_df = training_df.drop(columns=["EOGL", "EOGM", "EOGR"])
-    
-    # Combine datasets
+    # Adjust recording numbers to ensure they're unique
     recording_offset = evaluation_df["Recording"].max() + 1
     training_df["Recording"] += recording_offset
     raw_df = pd.concat([evaluation_df, training_df])
     
-    # TODO - move preprocessing to the window creation step, since want to apply preprocessing on a per-window basis
-    # processed_df = EnhancedPreprocessing.apply_preprocessing(raw_df)
+    # Use first few recordings as baseline/calibration data
+    baseline_recordings = list(raw_df['Recording'].unique())[:2]
     
-    # Arrange the dataframe into windows, so temporal information can be fed into the classifiers
-    windowed_df = create_windowed_dataframe(raw_df, window_size, window_overlap, flatten=flatten)
+    # Create windows with online processing simulation
+    windowed_df = create_windowed_dataframe(
+        raw_df, 
+        window_size=window_size,
+        baseline_recordings=baseline_recordings,
+        flatten=flatten
+    )
     
     # Split features and labels
-    labels = windowed_df["Label"]
-    features = windowed_df.drop(columns=["Label"])
-
+    labels = windowed_df['Label']
+    features = windowed_df.drop(columns=['Label'])
+    
     return features, labels
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process EEG data for BCI Competition IV.")
-    parser.add_argument("subject_number", type=int, choices=range(1, 10), help="Subject number (1-9)")
+    parser.add_argument("subject_number", type=int, choices=range(1, 10), 
+                       help="Subject number (1-9)")
     parser.add_argument("window_size", type=int, help="Size of the window")
-    parser.add_argument("window_overlap", type=int, help="Overlap of the window")
     parser.add_argument("--flatten", action="store_true", help="Flatten the windowed data")
-
+    
     args = parser.parse_args()
-
-    features, labels = data(args.subject_number, args.window_size, args.window_overlap, args.flatten)
+    
+    # Removed window_overlap parameter since we're not using it
+    features, labels = data(args.subject_number, args.window_size, args.flatten)
 
     # Concatentate into dataframe (column-wise), then write to CSV file
     output_df = pd.concat([labels, features], axis=1)
     output_file_name: str = ""
 
     if args.flatten:
-        output_file_name = f"A0{args.subject_number}_{args.window_size}_{args.window_overlap}_flattened.parquet"
+        output_file_name = f"A0{args.subject_number}_{args.window_size}_flattened.parquet"
 
     else:
-        output_file_name = f"A0{args.subject_number}_{args.window_size}_{args.window_overlap}.parquet"
+        output_file_name = f"A0{args.subject_number}_{args.window_size}.parquet"
 
     output_df.to_parquet(f"dataset_bci_iv_2a/{output_file_name}", engine="pyarrow", index=False)
