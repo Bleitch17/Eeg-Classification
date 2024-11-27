@@ -1,3 +1,8 @@
+!!!This is an experiment branch with preprocessing get rid of the overlap. But getting super low accuracy. And we decide to still use the overlap
+1) Having overlapping windows actually gives us a lot more data to work with
+2) Still need to capture temporal dependencies regardless. If we have no overlap, then in a real system where our windows are 100 samples (400ms), we'd be feeding windows in every 400ms, introducing latency. With overlap, we can feed windows in much quicker.
+
+
 Important notes for all models' improvements/changes:
 1. With Enhanced preprocessing: Baseline correction, bandpass filter, and notch filter
 2. K-fold cross validation
