@@ -5,7 +5,7 @@
   - [1.1 Dataset Overview and Challenges](#11-dataset-overview)
   - [1.2 Experiments and Data Processing Selection](#12-experiments-and-data-processing-selection)
 
-- [2. Models & Evaluations](#2-models--evaluations)
+- [2. Models & Evaluations (From Worst to Best)](#2-models--evaluations)
   - [2.0 Simple Classifiers](#20-simple-classifiers)
     - [2.0.1 Naive Bayes](#201-naive-bayes)
     - [2.0.2 Support Vector Machine (SVM)](#202-support-vector-machine-svm)
@@ -25,8 +25,8 @@
   - [3.4 Results Visualization](#34-results-visualization)
 
 ## 1. Data Processing Rationale and Workflow
-[Due to the size and complexity of the problem, we will focus on the BCI Competition IV Dataset 2a Subject1= 1's data for this project.
-As a result of careful experiments, we choose to use 5-fold cross-validation with no normalization in preprocessing (we did normalization in complex models), bandpass 8 - 50Hz, window size 100, and window overlap 90.](https://archive.ics.uci.edu/dataset/533/eeg+database)
+Due to the size and complexity of the problem, we will focus on the (BCI Competition IV Dataset 2a)(https://archive.ics.uci.edu/dataset/533/eeg+database) Subject 1's data for this project.
+As a result of careful experiments, we choose to use 5-fold cross-validation with no normalization in preprocessing (we did normalization in complex models), bandpass 8 - 50Hz, window size 100, and window overlap 90.
 
 ### 1.1 Dataset Overview and Challenges
 
@@ -36,8 +36,10 @@ The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects perfor
 - 5 motor imagery classes: Rest(0), Left Hand(1), Right Hand(2), Feet(3), Tongue(4)
 - ~480,000 EEG samples after preprocessing
 - Data windowing: 100 samples/window with 90-sample overlap
-
-[![Dataset Distribution](./Dataset%20EDA/dataset%20distribution%20hotmap.png)![Class Balance](./Dataset%20EDA/dataset_balance.png)]
+<div align="center">
+  <img src="./Dataset%20EDA/dataset%20distribution%20hotmap.png" width="400"/>
+  <img src="./Dataset%20EDA/dataset_balance.png" width="400"/>
+</div>
 
 #### Key Challenges
 1. **Signal Quality**:
@@ -56,8 +58,10 @@ The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects perfor
    - Mental states vary between recordings
    - Inconsistent signal patterns for same motor imagery tasks
 
-### 1.2 Experiments and Data Processing Selection
+### 1.2 Experiments and Data Processing Selections
 #### Rationale for Choices
+These choices were made based on experimental results and represent an optimal balance between model performance and computational efficiency.
+(*Note: if interested please see Experimental Results folder)
 
 1. **5-fold Cross-validation**:
    - Provides robust model evaluation
@@ -82,9 +86,7 @@ The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects perfor
    - Normalization performed within model architectures
    - Allows models to learn from raw signal patterns
 
-These choices were made based on experimental results and represent an optimal balance between model performance and computational efficiency.
-
-## 2. Models & Evaluations
+## 2. Models & Evaluations (From Worst to Best)
 [Content for this section...]
 
 ### 2.0 Simple Classifiers
