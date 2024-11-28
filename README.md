@@ -23,7 +23,7 @@
   - [3.3 Usage Instructions](#33-usage-instructions)
   - [3.4 Results Visualization](#34-results-visualization)
 
-- [4. Reference and Appendix](#4-reference-and-appendix)
+- [4. Data Work Flow and Appendix](#4-reference-and-appendix)
 
 ## 1. Data Processing Rationale and Workflow
 Due to the size and complexity of the problem, we will focus on the (BCI Competition IV Dataset 2a)(https://archive.ics.uci.edu/dataset/533/eeg+database) Subject 1's data for this project.
@@ -31,7 +31,7 @@ As a result of careful experiments, we choose to use 5-fold cross-validation wit
 
 ### 1.1 Dataset Overview and Challenges
 
-#### Overview (The Work Flow about How We Determine Our Data Processing Can Be Found at the end of the README)
+#### Overview [The Work Flow about How We Determine Our Data Processing Can Be Found at the end of the README](#4-reference-and-appendix)
 The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects performing motor imagery tasks. Our analysis focuses on Subject 1's data:
 - 22 EEG channels
 - 5 motor imagery classes: Rest(0), Left Hand(1), Right Hand(2), Feet(3), Tongue(4)
