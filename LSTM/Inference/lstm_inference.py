@@ -51,6 +51,8 @@ if __name__ == "__main__":
     all_labels = []
     all_predictions = []
 
+    model.eval()
+
     with torch.no_grad():
         for inputs, labels in test_loader:
             inputs, labels = inputs.to(device), labels.to(device)
