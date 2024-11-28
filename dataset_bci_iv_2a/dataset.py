@@ -142,7 +142,7 @@ class EnhancedPreprocessing:
         # Make a copy to avoid modifying the original
         filtered_df = df.copy()
         
-        # 1. Bandpass filter (8-30 Hz)
+        # 1. Bandpass filter (8-30 Hz) for reference not using it
         filtered_df = filter_dataframe(filtered_df, 8.0, 30.0, 250.0)
         
         # 2. Per-channel normalization
