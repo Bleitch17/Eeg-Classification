@@ -242,6 +242,14 @@ Linear (200→5)
   - Best Fold F1-Score: 0.74 
   - Final Loss: 0.6684
 
+<div align="center">
+  <img src="./Z-ReadMe_Figures/img-8.png" width="550"/>
+  <img src="./Z-ReadMe_Figures/image-9.png" width="400"/>
+  <br>
+  <em>Left: Training metrics with lower loss then CNN_ELU 
+  Right: Confusion matrix revealing better classification then CNN_ELU</em>
+</div>
+
 #### 2.1.2 Basic CNN with ELU
 - **Architecture**: Identical to ReLU version but with ELU activation (ELU recommended by papers)
 - **Key Differences**:
@@ -264,7 +272,7 @@ Linear (200→5)
   <img src="./Z-ReadMe_Figures/img-11.png" width="300"/>
   <br>
   <em>Left: Training metrics showing slightly faster convergence than LSTM
-  Right: Confusion matrix demonstrating improved class discrimination</em>
+  Right: Confusion matrix demonstrating improved class discrimination then LSTM</em>
 </div>
 
 #### 2.1.3 Deep CNN
