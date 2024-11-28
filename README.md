@@ -247,7 +247,7 @@ Linear (200→5)
 
 <div align="center">
   <img src="./Z-ReadMe_Figures/img-8.png" width="550"/>
-  <img src="./Z-ReadMe_Figures/image-9.png" width="400"/>
+  <img src="./Z-ReadMe_Figures/img-9.png" width="400"/>
   <br>
   <em>Left: Training metrics with lower loss then CNN_ELU 
   Right: Confusion matrix revealing better classification then CNN_ELU</em>
