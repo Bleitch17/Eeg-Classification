@@ -109,6 +109,9 @@ Key findings from baseline models:
 <div align="center">
   <img src="./Z-ReadMe_Figures/img-0.png" width="400"/>
   <img src="./Z-ReadMe_Figures/image-1.png" width="400"/>
+  <br>
+  <em>Left: Training metrics showing high variance
+  Right: Confusion matrix revealing poor class discrimination</em>
 </div>
 
 #### 2.0.2 Support Vector Machine (SVM)
@@ -129,6 +132,9 @@ Key findings from baseline models:
 <div align="center">
   <img src="./Z-ReadMe_Figures/img-2.png" width="400"/>
   <img src="./Z-ReadMe_Figures/img-3.png" width="400"/>
+  <br>
+  <em>Left: Training curves with improved stability over Naive Bayes
+  Right: Confusion matrix showing better class separation, especially for Rest state</em>
 </div>
 
 #### 2.0.3 Random Forest
@@ -148,6 +154,9 @@ Key findings from baseline models:
 <div align="center">
   <img src="./Z-ReadMe_Figures/img-4.png" width="400"/>
   <img src="./Z-ReadMe_Figures/img-5.png" width="400"/>
+  <br>
+  <em>Left: Training metrics demonstrating consistent performance
+  Right: Confusion matrix showing good discrimination between most classes</em>
 </div>
 
 ### 2.1  *Key Part*: Model Architectures for LSTM and normal + deeper learning CNNs
@@ -188,6 +197,9 @@ Linear (200→5) + Sigmoid
 <div align="center">
   <img src="./Z-ReadMe_Figures/img-6.png" width="600"/>
   <img src="./Z-ReadMe_Figures/img-7.png" width="300"/>
+  <br>
+  <em>Left: Training curves showing gradual convergence
+  Right: Confusion matrix indicating moderate class separation</em>
 </div>
 
 
@@ -247,6 +259,9 @@ TODO: To be finished
 <div align="center">
   <img src="./Z-ReadMe_Figures/img-10.png" width="600"/>
   <img src="./Z-ReadMe_Figures/img-11.png" width="300"/>
+  <br>
+  <em>Left: Training metrics showing faster convergence than LSTM
+  Right: Confusion matrix demonstrating improved class discrimination</em>
 </div>
 
 #### 2.1.3 Deep CNN
