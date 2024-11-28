@@ -38,8 +38,8 @@ The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects perfor
 - ~480,000 EEG samples after preprocessing
 - Data windowing: 100 samples/window with 90-sample overlap
 <div align="center">
-  <img src="./Dataset%20EDA/dataset%20distribution%20hotmap.png" width="250"/>
-  <img src="./Dataset%20EDA/dataset_balance.png" width="300"/>
+  <img src="./Dataset%20EDA/dataset%20distribution%20hotmap.png" width="400"/>
+  <img src="./Dataset%20EDA/dataset_balance.png" width="400"/>
 </div>
 
 #### Key Challenges
@@ -158,15 +158,23 @@ Bidirectional LSTM and CNN-ELU, CNN-ReLU are our first few simpler models with t
 
 #### 2.1.0 LSTM
 - **Architecture**:
-  ```
-  Input (batch_size, window_size, 22 channels)
+```
+Input (batch_size, window_size, 22 channels)
        ↓
-  Bidirectional LSTM (hidden_size=128)
+Bidirectional LSTM (input_size=22, hidden_size=128)
        ↓
-  Dropout (p=0.5)
+Flatten
        ↓
-  Dense Layers (1000 → 200 → 5)
-  ```
+ReLU
+       ↓
+Dropout (0.5)
+       ↓
+Linear (LazyLinear→1000) + Sigmoid
+       ↓
+Linear (1000→200) + Sigmoid
+       ↓
+Linear (200→5) + Sigmoid
+```
 - **Design Rationale**:
   - Optimizer: Adam to avoid getting stuck in local minima and for EEG data
   - Bidirectional LSTM to capture temporal dependencies in both directions
@@ -185,17 +193,26 @@ Bidirectional LSTM and CNN-ELU, CNN-ReLU are our first few simpler models with t
 
 #### 2.1.1 Basic CNN with ReLU
 - **Architecture**:
-  ```
-  Input (batch_size, 1, 22 channels, window_size)
+```
+Input (batch_size, 1, 22 channels, window_size)
        ↓
-  Conv2D (8 filters, kernel=(22,1)) + BatchNorm + ReLU
+Conv2D (1→8, kernel=(22,1)) + BatchNorm + ReLU
        ↓
-  Conv2D (40 filters, kernel=(1,30)) + BatchNorm + ReLU
+Conv2D (8→40, kernel=(1,30)) + BatchNorm + ReLU
        ↓
-  Dropout (0.2)
+Flatten
        ↓
-  Dense Layers (400 → 200 → 5) with ReLU
-  ```
+Dropout (0.2)
+       ↓
+Linear (LazyLinear→400) + ReLU
+       ↓
+Dropout (0.3)
+       ↓
+Linear (400→200) + ReLU
+       ↓
+Linear (200→5)
+```
+  
 - **Design Choices**:
   - First conv layer: spatial filtering across channels
   - Second conv layer: temporal filtering
@@ -242,21 +259,32 @@ Inspired by several key papers in EEG classification and deep learning, we devel
  [Squeeze-and-Excitation Networks](https://arxiv.org/pdf/1709.01507)
 
 - **Architecture**:
-  ```
-  Input (batch_size, 1, 22 channels, window_size)
-       ↓
-  Spatial Conv (kernel=(22,1)) + BatchNorm
-       ↓
-  Temporal Conv (kernel=(1,30)) + BatchNorm
-       ↓
-  SE-Block (Channel Attention)
-       ↓
-  Residual Blocks × 2
-       ↓
-  Global Average Pooling
-       ↓
-  Dense (5 classes)
-  ```
+```
+Input Layer (batch_size, 1, 22, window_size)
+    ↓
+Spatial Attention
+Conv1d(22→64) → BatchNorm → ELU → Conv1d(64→22) → Softmax
+    ↓
+Feature Extraction
+Conv1d(22→64, kernel=31) → BatchNorm → ELU → Dropout(0.2)
+    ↓
+Residual Block 1 + SE-Block
+Conv → BatchNorm → ELU → Conv → BatchNorm → SE-Block
+    ↓
+MaxPool(2) + Dropout(0.2)
+    ↓
+Residual Block 2 + SE-Block
+Conv → BatchNorm → ELU → Conv → BatchNorm → SE-Block
+    ↓
+Channel Expansion Conv1d(64→128) 
+    ↓
+MaxPool(2) + Dropout(0.2)
+    ↓
+Global Average Pooling
+    ↓
+Classifier
+Linear(128→64) → ELU → Dropout(0.5) → Linear(64→5)
+```
 
 - **Key Improvements**:
   - Spatial-temporal feature extraction
@@ -283,7 +311,7 @@ Inspired by several key papers in EEG classification and deep learning, we devel
   - Training time 14 hrs with cpu but really compact model size and high accuracy
 
 <div align="center">
-  <img src="./Z-ReadMe_Figures/img-12.png" width="800"/>
+  <img src="./Z-ReadMe_Figures/img-12.png" width="600"/>
   <img src="./Z-ReadMe_Figures/img-13.png" width="400"/>
   <br>
   <em>Left: Training curves showing stable convergence
