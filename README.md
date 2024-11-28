@@ -190,7 +190,7 @@ Linear (200→5) + Sigmoid
   - Large initial dense layer (1000) to learn complex feature combinations
   - Aggressive dropout (0.5) to prevent overfitting
 - **Performance**:
-  - Average Accuracy: 64.2%
+  - Accuracy: 64.2%
   - High computational cost(Memory and Time and big model size)
   - Slower convergence than CNNs
 
@@ -236,8 +236,11 @@ Linear (200→5)
   - Batch size: 16 (best balance of speed/memory)
   - Weight decay: 0.00005 for regularization
 - **Performance**:
-  - Best Fold(2) Validation Accuracy: 73.55%
-  TODO: To be finished
+  - Best Fold(fold 2) Validation Accuracy: 73.55%
+  - Best Fold Training Accuracy: 71.92%
+  - Best Fold Precision: 0.74
+  - Best Fold F1-Score: 0.74 
+  - Final Loss: 0.6684
 
 #### 2.1.2 Basic CNN with ELU
 - **Architecture**: Identical to ReLU version but with ELU activation (ELU recommended by papers)
@@ -250,11 +253,11 @@ Linear (200→5)
   - Early stopping patience: 7 epochs
   - Learning rate scheduling: factor=0.1, patience=3
 - **Performance**:
-  - Best Fold(fold 1)Validation Accuracy: 66.51%
-  - Best Fold Precision: 68.3%
+  - Best Fold (Fold 1)Validation Accuracy: 66.51%
+  - Best Fold Training Accuracy: 68.3%
+  - Best Fold Precision: 0.68
   - Best Fold F1-Score: 0.67
-  - Final loss: 0.8119
-TODO: To be finished
+  - Final Loss: 0.8119
 
 <div align="center">
   <img src="./Z-ReadMe_Figures/img-10.png" width="600"/>
@@ -322,7 +325,7 @@ Linear(128→64) → ELU → Dropout(0.5) → Linear(64→5)
   - Best Fold Training Accuracy: 91.31%
   - Best Fold Precision: 0.93
   - Best Fold F1-Score: 0.93
-  - Final Validation Loss: 0.4374
+  - Final Best Validation Loss: 0.4073
   - Training time 14 hrs with cpu but really compact model size and high accuracy
 
 <div align="center">
@@ -370,19 +373,77 @@ Linear(128→64) → ELU → Dropout(0.5) → Linear(64→5)
 
 
 ## 3. How to Read and Use our Repository
-[Content for this section...]
+You can find our code, models, and results easily according to directory names. (**except lstm which is too big and can only be inferenced as we can not upload to github**)
 
 ### 3.1 Repository Structure
-[Content for this section...]
+Here is how to browse our repository:
+**1. We have 1 directory for our dataset and its related preprocessing and 1 with the plotting for dataset EDA:**
+```
+.
+├── dataset_bci_iv_2a/  # everything about dataset
+├── Dataset_EDA/                                # Dataset analysis
 
-### 3.2 Installation Guide
-[Content for this section...]
+```
+**2. We have our directory with model's training and plotting codes, trained saved model in .pth (with relevant .npy for fold  histories if there are recorded), and our plotted fancy graphs for more details aside from report and slides. **
+```
+.
+├── Best_DeepCNN_Better_Code+Model+Eval_Plots/  # Best performing model - the deeper learning CNN
+├── CNN w ELU Code + Model + Eval Plots/        # Basic CNN with ELU as activation functions
+├── CNN w ReLU Code + Model + Eval Plots/       # Basic CNN with ReLU as activation functions
+├── LSTM_Code+Model+Eval_Plots/                 # LSTM (We use test and split finally due to its computation complexity)
+├── Naive Bayes Code + Eval Plots/              # For Naive Bayes
+├── Random Forest Code + Eval Plots/            # For Random Forest
+├── SVM Code + Eval Results/                    # For SVM
+└── ENV.yml                                     # Environment configuration
+```
+The other directory starting with "Z-" are unimportant as only for documentation facilitation.
+
+3. We have some branches of our experiment and testing history for without overlaps and without k-fold cross validation which can be found in branch Experiments.
+
+1. **Install Conda**
+```bash
+# Verify installation
+conda --version  # Should show: conda 24.9.2
+
+# Optional: Disable auto-activation
+conda config --set auto_activate_base False
+```
+
+2. **Create Environment**
+```bash
+# Create and activate environment
+conda env create -n eeg-classification --file ENV.yml
+conda activate eeg-classification
+```
+
+3. **Install GNU Octave** (for .gdf file processing)
+- Download from [GNU Octave website](https://octave.org/download)
+- Install biosig package:
+```octave
+pkg install -forge biosig
+pkg load biosig
+```
 
 ### 3.3 Usage Instructions
-[Content for this section...]
+1. **Data Processing**
+```
+# Generate processed dataset
+cd dataset_bci_iv_2a
+python dataset.py 1 100 90  # Creates A01_100_90.parquet
+python dataset.py 1 100 90 --flatten # Creates A01_100_90_flattened.parquet
+```
 
-### 3.4 Results Visualization
-[Content for this section...]
+2. **Run Models**
+```
+# For Deep CNN as an instance
+cd Best_DeepCNN_Better_Code+Model+Eval_Plots
+python deepCNN_better.py
+```
+3. **View Results**
+- Training plots will be saved in respective model directories
+- Model checkpoints are saved as .pth files
+- You can run respective plot.py to get the metrics plotted out
+  
 
 ## 4. Reference and Appendix
 1.Data Processing Decision Workflow:
