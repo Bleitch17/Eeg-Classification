@@ -18,60 +18,134 @@ from typing import Dict, List
 from sklearn.model_selection import KFold
 
 DEFAULT_CONFIG = {
-    'batch_size': 32,
-    'lr': 0.0003,
-    'weight_decay': 0.01,
-    'scheduler': 'onecycle',
-    'max_epochs': 50,
-    'label_smoothing': 0.1,
-    'accumulation_steps': 2,
-    'num_workers': 4
+    'batch_size': 32,      # Larger batch = faster training while reduce generalization
+    'lr': 0.0005,         # Learning rate: higher = faster learning while unstable,  increased from 0.0001 from Trial 1
+    'weight_decay': 0.005, # L2 regularization: tuned higher for more regularization, reduces overfitting
+    'scheduler': 'onecycle', # Learning rate scheduling strategy
+    'max_epochs': 50,      # Maximum training iterations, we use 50 epochs to balance between training time and generalization
+    'label_smoothing': 0.05,# Reduces overconfidence: higher for more regularization, increased from 0.01 from Trial 1
+    'accumulation_steps': 1, # Simulates larger batch size with limited memory
+    'num_workers': 4       # Parallel threads
 }
+
+class SEBlock(nn.Module):
+    """
+    Squeeze-and-Excitation Block: Adaptively recalibrates channel-wise feature responses
+    by explicitly modeling interdependencies between channels.
+    
+    Parameters:
+        channels: Number of input channels
+        reduction: Reduction ratio for bottleneck (higher = more compression)
+    """
+    def __init__(self, channels, reduction=16):
+        super().__init__()
+        self.squeeze = nn.AdaptiveAvgPool1d(1)  # Global pooling
+        self.excitation = nn.Sequential(
+            # Dimensionality reduction
+            nn.Linear(channels, channels // reduction),
+            nn.ELU(),
+            # Dimensionality restoration
+            nn.Linear(channels // reduction, channels),
+            nn.Sigmoid()  # Scale each channel between 0-1
+        )
+        
+    def forward(self, x):
+        b, c, _ = x.size()
+        y = self.squeeze(x).view(b, c)
+        y = self.excitation(y).view(b, c, 1)
+        return x * y
+
+class ResidualBlock(nn.Module):
+    """
+    Residual Block with SE attention: Allows network to learn residual functions,
+    making it easier to train deeper networks.
+    
+    Parameters:
+        channels: Number of input/output channels
+    Effects:
+        - Larger kernel_size = larger receptive field but more parameters
+        - More channels = more capacity but more memory usage
+    """
+    def __init__(self, channels):
+        super().__init__()
+        self.conv1 = nn.Conv1d(channels, channels, kernel_size=15, padding=7)
+        self.bn1 = nn.BatchNorm1d(channels)
+        self.conv2 = nn.Conv1d(channels, channels, kernel_size=15, padding=7)
+        self.bn2 = nn.BatchNorm1d(channels)
+        self.elu = nn.ELU()
+        self.se = SEBlock(channels)
+        
+    def forward(self, x):
+        residual = x
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.elu(x)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.se(x)
+        x += residual
+        x = self.elu(x)
+        return x
 
 class Net(nn.Module):
     """
-    CNN design for classifying EEG signals inspired by the following paper:
+    Modern CNN architecture for EEG classification combining:
+    1. Spatial attention for channel importance
+    2. Residual connections for deep network training
+    3. SE blocks for channel-wise feature recalibration
+    
+    Architecture Effects:
+    - More conv filters
+    - More residual blocks = deeper network, better features
+    - Higher dropout = more regularization and we tuned to reduce the risk of underfitting
+    
+    Deep CNN design for classifying EEG signals inspired by the following paper:
     https://www.sciencedirect.com/science/article/pii/S0030402616312980
+    https://arxiv.org/pdf/1611.08024
+    https://arxiv.org/pdf/1512.03385
+    https://arxiv.org/pdf/1709.01507
     """
     def __init__(self) -> None:
         super(Net, self).__init__()
         
-        # Spatial attention branch
+        # Spatial attention: Learn importance of each EEG channel
         self.spatial_attention = nn.Sequential(
-            nn.Conv1d(22, 64, kernel_size=1),
+            nn.Conv1d(22, 64, kernel_size=1),  # Channel-wise projection
             nn.BatchNorm1d(64),
             nn.ELU(),
-            nn.Conv1d(64, 22, kernel_size=1),
-            nn.Softmax(dim=1)
+            nn.Conv1d(64, 22, kernel_size=1),  # Project back to channel space
+            nn.Softmax(dim=1)  # Normalize attention weights
         )
         
-        # Modified temporal feature extraction
+        # Feature extraction pipeline
         self.feature_extractor = nn.Sequential(
-            # Initial feature extraction (22, 100) -> (64, 100)
-            nn.Conv1d(22, 64, kernel_size=31, padding=15),
+            # Initial feature extraction
+            nn.Conv1d(22, 64, kernel_size=31, padding=15),  # Large kernel for temporal patterns
             nn.BatchNorm1d(64),
             nn.ELU(),
-            nn.Dropout(0.2),
-            nn.MaxPool1d(kernel_size=2, stride=2),  # (64, 50)
+            nn.Dropout(0.2),  # Initial regularization, imrpoved from 0.5 tp 0.3 then 0.2
             
-            # Deeper feature extraction (64, 50) -> (128, 25)
-            nn.Conv1d(64, 128, kernel_size=15, padding=7),
-            nn.BatchNorm1d(128),
-            nn.ELU(),
+            # Deep feature processing
+            ResidualBlock(64),
+            nn.MaxPool1d(kernel_size=2, stride=2),  # Temporal downsampling
             nn.Dropout(0.2),
-            nn.MaxPool1d(kernel_size=2, stride=2)  # (128, 25)
+            
+            ResidualBlock(64),
+            nn.Conv1d(64, 128, kernel_size=1),  # Increase channels for more features
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            nn.Dropout(0.2)  # Final regularization
         )
         
         # Global pooling and classifier
         self.global_pool = nn.AdaptiveAvgPool1d(1)
         self.classifier = nn.Sequential(
-            nn.Linear(128, 64),  # Input is 128 because of global pooling
+            nn.Linear(128, 64),  # Input is 128 with global pooling
             nn.ELU(),
             nn.Dropout(0.5),
             nn.Linear(64, 5)
         )
         
-        # Add weight initialization
+        # Add weight initialization, but not significant
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
@@ -112,7 +186,7 @@ class EarlyStopping:
     def __call__(self, val_loss, val_acc, epoch, model):
         improved = False
         
-        # Check for improvement in either metric
+        # We increased patience for early stopping to get better results
         if val_loss < self.best_loss - self.min_delta:
             self.best_loss = val_loss
             improved = True
@@ -130,8 +204,16 @@ class EarlyStopping:
                 self.early_stop = True
                 print(f"Best epoch was {self.best_epoch} with loss {self.best_loss:.4f} and accuracy {self.best_val_acc:.2f}%")
 
+#A big bunch of code here is just to help collect metrics for plotting after training
 def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, device, num_epochs=50):
-    history = {'train_loss': [], 'train_acc': [], 'val_loss': [], 'val_acc': [], 'lr': []}
+    history = {
+        'train_loss': [], 'train_acc': [], 
+        'val_loss': [], 'val_acc': [], 
+        'lr': [],
+        'train_precision': [], 'val_precision': [],
+        'train_f1': [], 'val_f1': [],
+        'train_confusion_matrix': [], 'val_confusion_matrix': []
+    }
     early_stopping = EarlyStopping(patience=20, min_delta=0.001)
     accumulation_steps = DEFAULT_CONFIG['accumulation_steps']
     
@@ -140,6 +222,9 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         train_loss = 0
         train_correct = 0
         train_total = 0
+        all_train_preds = []
+        all_train_labels = []
+        
         optimizer.zero_grad()
         
         for i, (inputs, labels) in enumerate(tqdm(train_loader, desc=f'Training Epoch {epoch+1}')):
@@ -149,7 +234,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             loss.backward()
             
             if (i + 1) % accumulation_steps == 0:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.1)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
                 optimizer.step()
                 optimizer.zero_grad()
             
@@ -157,10 +242,25 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             _, predicted = torch.max(outputs, 1)
             train_total += labels.size(0)
             train_correct += (predicted == labels).sum().item()
+            
+            # Collect predictions
+            all_train_preds.extend(predicted.cpu().numpy())
+            all_train_labels.extend(labels.cpu().numpy())
         
-        # Calculate training metrics
+        # Calculate training loss/acc
         avg_train_loss = train_loss/len(train_loader)
         train_accuracy = 100.*train_correct/train_total
+        
+      
+        from sklearn.metrics import precision_score, f1_score, confusion_matrix
+        train_precision = precision_score(all_train_labels, all_train_preds, average='macro')
+        train_f1 = f1_score(all_train_labels, all_train_preds, average='macro')
+        train_cm = confusion_matrix(all_train_labels, all_train_preds)
+        
+        # Store metrics here
+        history['train_precision'].append(train_precision)
+        history['train_f1'].append(train_f1)
+        history['train_confusion_matrix'].append(train_cm)
         
         # Validation phase
         model.eval()
@@ -169,21 +269,37 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         val_total = 0
         
         with torch.no_grad():
+            all_preds = []
+            all_labels = []
             for inputs, labels in val_loader:
                 inputs, labels = inputs.to(device), labels.to(device)
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 
-                val_loss += loss.item()
                 _, predicted = torch.max(outputs, 1)
+                all_preds.extend(predicted.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+                
+                val_loss += loss.item()
                 val_total += labels.size(0)
                 val_correct += (predicted == labels).sum().item()
+            
+            # Calculate all other metrics needed for our evaluation like f1 and precision
+            from sklearn.metrics import precision_score, f1_score, confusion_matrix
+            val_precision = precision_score(all_labels, all_preds, average='macro')
+            val_f1 = f1_score(all_labels, all_preds, average='macro')
+            val_cm = confusion_matrix(all_labels, all_preds)
+            
+            # Store 
+            history['val_precision'].append(val_precision)
+            history['val_f1'].append(val_f1)
+            history['val_confusion_matrix'].append(val_cm)
         
         # Calculate validation metrics
         avg_val_loss = val_loss/len(val_loader)
         val_accuracy = 100.*val_correct/val_total
         
-        # Print metrics for this epoch
+        # Print metrics during training for each epoch to help with debugging and tuning (early discovery of overfitting)
         print(f'Epoch [{epoch+1}/{num_epochs}]')
         print(f'Train Loss: {avg_train_loss:.4f} | Train Acc: {train_accuracy:.2f}%')
         print(f'Val Loss: {avg_val_loss:.4f} | Val Acc: {val_accuracy:.2f}%')
@@ -202,14 +318,14 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         else:
             scheduler.step()
         
-        # Record metrics
+        # SAve metrics
         history['train_loss'].append(avg_train_loss)
         history['train_acc'].append(train_accuracy)
         history['val_loss'].append(avg_val_loss)
         history['val_acc'].append(val_accuracy)
         history['lr'].append(scheduler.get_last_lr()[0])
     
-    # Always use best model
+    # Kepp using best model
     if early_stopping.best_model_state is not None:
         model.load_state_dict(early_stopping.best_model_state)
     
@@ -276,7 +392,7 @@ if __name__ == "__main__":
     print("Loading dataset...")
     
     try:
-        df = load_and_verify_data("dataset_bci_iv_2a/A01_100.parquet")
+        df = load_and_verify_data("dataset_bci_iv_2a/A01_100_90.parquet")
         
         # Verify data types and convert if necessary
         print("\nVerifying data types...")
@@ -302,6 +418,7 @@ if __name__ == "__main__":
         
         # Store results for each fold
         fold_results = []
+        all_fold_histories = []  # store all fold histories
         best_fold_acc = 0
         best_fold = 0
         
@@ -313,13 +430,11 @@ if __name__ == "__main__":
                 # Create train and validation datasets
                 train_dataset = BciIvDataset(
                     features.iloc[train_idx], 
-                    labels.iloc[train_idx],
-                    is_training=True
+                    labels.iloc[train_idx]
                 )
                 val_dataset = BciIvDataset(
                     features.iloc[val_idx], 
-                    labels.iloc[val_idx],
-                    is_training=False
+                    labels.iloc[val_idx]
                 )
                 
                 # Create data loaders
@@ -372,18 +487,28 @@ if __name__ == "__main__":
                     num_epochs=DEFAULT_CONFIG['max_epochs']
                 )
                 
+                # Store history for this fold
+                all_fold_histories.append({
+                    'fold': fold + 1,
+                    'history': history,
+                    'val_acc': val_acc
+                })
+                
                 fold_results.append(val_acc)
                 if val_acc > best_fold_acc:
                     best_fold_acc = val_acc
                     best_fold = fold + 1
-                    # Save best model with consistent state
+                    # Save best model WITH ALL histories
                     torch.save({
                         'fold': fold + 1,
-                        'model_state_dict': model.state_dict(),  # This will be the best model state from early stopping
+                        'model_state_dict': model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
                         'val_acc': val_acc,
-                        'config': DEFAULT_CONFIG  # Add config for reproducibility
-                    }, 'best_model.pth')
+                        'config': DEFAULT_CONFIG,
+                        'best_fold_history': history,  # History of best fold
+                        'all_fold_histories': all_fold_histories,  # Histories of ALL folds
+                        'class_names': ['Rest', 'Left Hand', 'Right Hand', 'Feet', 'Tongue']  # Add this
+                    }, 'deepCNN_better.pth')
             
             except Exception as e:
                 print(f"Error in fold {fold+1}: {str(e)}")

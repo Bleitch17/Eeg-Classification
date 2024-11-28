@@ -16,14 +16,15 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from typing import Dict, List
 from sklearn.model_selection import KFold
+from sklearn.metrics import precision_score, f1_score, confusion_matrix
 
 DEFAULT_CONFIG = {
     'batch_size': 32,
-    'lr': 0.0005,
-    'weight_decay': 0.005,
+    'lr': 0.0003,
+    'weight_decay': 0.01,
     'scheduler': 'onecycle',
     'max_epochs': 50,
-    'label_smoothing': 0.05,
+    'label_smoothing': 0.1,
     'accumulation_steps': 1,
     'num_workers': 4
 }
@@ -69,8 +70,11 @@ class ResidualBlock(nn.Module):
 
 class Net(nn.Module):
     """
-    CNN design for classifying EEG signals inspired by the following paper:
+    Deep CNN design for classifying EEG signals inspired by the following paper:
     https://www.sciencedirect.com/science/article/pii/S0030402616312980
+    https://arxiv.org/pdf/1611.08024
+    https://arxiv.org/pdf/1512.03385
+    https://arxiv.org/pdf/1709.01507
     """
     def __init__(self) -> None:
         super(Net, self).__init__()
@@ -172,7 +176,14 @@ class EarlyStopping:
                 print(f"Best epoch was {self.best_epoch} with loss {self.best_loss:.4f} and accuracy {self.best_val_acc:.2f}%")
 
 def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, device, num_epochs=50):
-    history = {'train_loss': [], 'train_acc': [], 'val_loss': [], 'val_acc': [], 'lr': []}
+    history = {
+        'train_loss': [], 'train_acc': [], 
+        'val_loss': [], 'val_acc': [], 
+        'lr': [],
+        'train_precision': [], 'val_precision': [],
+        'train_f1': [], 'val_f1': [],
+        'train_confusion_matrix': [], 'val_confusion_matrix': []
+    }
     early_stopping = EarlyStopping(patience=20, min_delta=0.001)
     accumulation_steps = DEFAULT_CONFIG['accumulation_steps']
     
@@ -183,6 +194,9 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         train_total = 0
         optimizer.zero_grad()
         
+        all_train_preds = []
+        all_train_labels = []
+        
         for i, (inputs, labels) in enumerate(tqdm(train_loader, desc=f'Training Epoch {epoch+1}')):
             inputs, labels = inputs.to(device), labels.to(device)
             outputs = model(inputs)
@@ -190,7 +204,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             loss.backward()
             
             if (i + 1) % accumulation_steps == 0:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.1)
                 optimizer.step()
                 optimizer.zero_grad()
             
@@ -198,10 +212,24 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             _, predicted = torch.max(outputs, 1)
             train_total += labels.size(0)
             train_correct += (predicted == labels).sum().item()
+            
+            # Collect predictions and labels for metrics
+            all_train_preds.extend(predicted.cpu().numpy())
+            all_train_labels.extend(labels.cpu().numpy())
         
         # Calculate training metrics
         avg_train_loss = train_loss/len(train_loader)
         train_accuracy = 100.*train_correct/train_total
+        
+        # Calculate additional training metrics
+        train_precision = precision_score(all_train_labels, all_train_preds, average='macro')
+        train_f1 = f1_score(all_train_labels, all_train_preds, average='macro')
+        train_cm = confusion_matrix(all_train_labels, all_train_preds)
+        
+        # Store training metrics
+        history['train_precision'].append(train_precision)
+        history['train_f1'].append(train_f1)
+        history['train_confusion_matrix'].append(train_cm)
         
         # Validation phase
         model.eval()
@@ -210,6 +238,8 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         val_total = 0
         
         with torch.no_grad():
+            all_preds = []
+            all_labels = []
             for inputs, labels in val_loader:
                 inputs, labels = inputs.to(device), labels.to(device)
                 outputs = model(inputs)
@@ -219,6 +249,20 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
                 _, predicted = torch.max(outputs, 1)
                 val_total += labels.size(0)
                 val_correct += (predicted == labels).sum().item()
+                
+                # Collect predictions and labels
+                all_preds.extend(predicted.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
+            
+            # Calculate additional metrics
+            val_precision = precision_score(all_labels, all_preds, average='macro')
+            val_f1 = f1_score(all_labels, all_preds, average='macro')
+            val_cm = confusion_matrix(all_labels, all_preds)
+            
+            # Store metrics
+            history['val_precision'].append(val_precision)
+            history['val_f1'].append(val_f1)
+            history['val_confusion_matrix'].append(val_cm)
         
         # Calculate validation metrics
         avg_val_loss = val_loss/len(val_loader)
@@ -343,6 +387,7 @@ if __name__ == "__main__":
         
         # Store results for each fold
         fold_results = []
+        all_fold_histories = []
         best_fold_acc = 0
         best_fold = 0
         
@@ -411,18 +456,28 @@ if __name__ == "__main__":
                     num_epochs=DEFAULT_CONFIG['max_epochs']
                 )
                 
+                # Store history for this fold
+                all_fold_histories.append({
+                    'fold': fold + 1,
+                    'history': history,
+                    'val_acc': val_acc
+                })
+                
                 fold_results.append(val_acc)
                 if val_acc > best_fold_acc:
                     best_fold_acc = val_acc
                     best_fold = fold + 1
-                    # Save best model with consistent state
+                    # Save best model WITH ALL histories
                     torch.save({
                         'fold': fold + 1,
-                        'model_state_dict': model.state_dict(),  # This will be the best model state from early stopping
+                        'model_state_dict': model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
                         'val_acc': val_acc,
-                        'config': DEFAULT_CONFIG  # Add config for reproducibility
-                    }, 'best_model.pth')
+                        'config': DEFAULT_CONFIG,
+                        'best_fold_history': history,
+                        'all_fold_histories': all_fold_histories,
+                        'class_names': ['Rest', 'Left Hand', 'Right Hand', 'Feet', 'Tongue']
+                    }, 'deepCNN.pth')
             
             except Exception as e:
                 print(f"Error in fold {fold+1}: {str(e)}")
