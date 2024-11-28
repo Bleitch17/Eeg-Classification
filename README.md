@@ -31,7 +31,7 @@ As a result of careful experiments, we choose to use 5-fold cross-validation wit
 
 ### 1.1 Dataset Overview and Challenges
 
-#### Overview (The Work Flow Can be Found at the end of the README)
+#### Overview (The Work Flow about How We Determine Our Data Processing Can Be Found at the end of the README)
 The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects performing motor imagery tasks. Our analysis focuses on Subject 1's data:
 - 22 EEG channels
 - 5 motor imagery classes: Rest(0), Left Hand(1), Right Hand(2), Feet(3), Tongue(4)
