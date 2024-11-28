@@ -268,10 +268,10 @@ TODO: To be finished
 
  
 Inspired by several key papers in EEG classification and deep learning, we developed an enhanced CNN architecture combining proven techniques from:
-[Single-trial EEG classification of motor imagery using deep convolutional neural networks](https://www.sciencedirect.com/science/article/pii/S0030402616312980)
- [EEGNet](https://arxiv.org/pdf/1611.08024)
- [Deep Residual Learning for Image Recognition](https://arxiv.org/pdf/1512.03385)
- [Squeeze-and-Excitation Networks](https://arxiv.org/pdf/1709.01507)
+1. [Single-trial EEG classification of motor imagery using deep convolutional neural networks](https://www.sciencedirect.com/science/article/pii/S0030402616312980)
+2. [EEGNet](https://arxiv.org/pdf/1611.08024)
+3. [Deep Residual Learning for Image Recognition](https://arxiv.org/pdf/1512.03385)
+4. [Squeeze-and-Excitation Networks](https://arxiv.org/pdf/1709.01507)
 
 - **Architecture**:
 ```
