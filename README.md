@@ -5,7 +5,7 @@
   - [1.1 Dataset Overview and Challenges](#11-dataset-overview)
   - [1.2 Experiments and Data Processing Selection](#12-experiments-and-data-processing-selection)
 
-- [2. Models & Evaluations](#2-models--evaluations)
+- [2. Models & Evaluations (From Worst to Best)](#2-models--evaluations)
   - [2.0 Simple Classifiers](#20-simple-classifiers)
     - [2.0.1 Naive Bayes](#201-naive-bayes)
     - [2.0.2 Support Vector Machine (SVM)](#202-support-vector-machine-svm)
@@ -84,7 +84,7 @@ The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects perfor
 
 These choices were made based on experimental results and represent an optimal balance between model performance and computational efficiency.
 
-## 2. Models & Evaluations
+## 2. Models & Evaluations (From Worst to Best)
 [Content for this section...]
 
 ### 2.0 Simple Classifiers
