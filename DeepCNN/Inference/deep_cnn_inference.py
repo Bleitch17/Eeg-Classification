@@ -36,7 +36,7 @@ if __name__ == "__main__":
     if not os.path.exists("A01_100_90_deep_cnn.parquet"):
         print("==================================================================================================================")
         print("Missing required files for inference.")
-        print("Please download the following files from Google Drive, and place them in the LSTM/Inference directory:")
+        print("Please download the following files from Google Drive, and place them in the DeepCNN/Inference directory:")
         print("Missing: A01_100_90_deep_cnn.parquet")
         print("Google Drive Url: https://drive.google.com/drive/folders/1zoJrLGljjhZXrgfG6OspXZZ7gZ3NFLOL?usp=sharing")
         print("==================================================================================================================")
