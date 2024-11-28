@@ -439,7 +439,7 @@ pkg load biosig
 ```
 
 ### 3.3 Running Inference Scripts
-The `NaiveBayes`, `LSTM`, and `DeepCNN` directories contain inference scripts that may be run to reproduce the results seen in the report. Unfortunately, the model states for `CNN_ELU` and `CNN_RELU` were lost due to a bug, so there are no inference scripts for those models.
+The `NaiveBayes`, `LSTM`, and `DeepCNN` directories contain inference scripts that may be run to reproduce the results seen in the report. Unfortunately, the model states for `CNN_ELU` and `CNN_RELU` were lost due to a bug, so there are no inference scripts for those models. The other models all have .pth (some with .npy to record the fold's metrics history)
 
 > NOTE - The inference scripts require manual download of data from this [Google Drive Folder](https://drive.google.com/drive/folders/1zoJrLGljjhZXrgfG6OspXZZ7gZ3NFLOL?usp=sharing), since GitHub does not allow files over 100Mb to be stored in the repo. The inference scripts will explicitly log which files need to be downloaded, and where they should be placed if run without the proper data.
 
@@ -476,7 +476,7 @@ python dataset.py 1 100 90 --flatten # Creates A01_100_90_flattened.parquet
 2. **Run Models**
 ```
 # For Deep CNN as an instance
-cd Best_DeepCNN_Better_Code+Model+Eval_Plots
+cd ./DeepCNN/Model
 python deepCNN_better.py
 ```
 3. **View Results**
