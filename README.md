@@ -343,52 +343,25 @@ Inspired by several key papers in EEG classification and deep learning, we devel
 
 ## 4. Reference and Appendix
 1.Data Processing Decision Workflow:
-<!DOCTYPE html>
-<html>
-<head>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <script>
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: 'default',
-            flowchart: {
-                useMaxWidth: true,
-                htmlLabels: true,
-                curve: 'basis'
-            }
-        });
-    </script>
-    <style>
-        .mermaid {
-            display: flex;
-            justify-content: center;
-            margin: 20px auto;
-            max-width: 100%;
-        }
-    </style>
-</head>
-<body>
-    <div class="mermaid">
-        flowchart TD
-            A[Initial Experiments] --> B{K-fold Validation}
-            B -->|Without| C[No K-fold]
-            B -->|With| D[5-fold Cross-validation]
-            C --> E[Poor Generalization]
-            D --> F[Better Model Stability]
-            G[Data Processing Tests] --> H{Window Overlap}
-            H -->|Without| I[No Overlap]
-            H -->|With| J[90% Overlap]
-            I --> K[Limited Temporal Info]
-            J --> L[Better Pattern Recognition]
-            M[Final Processing Pipeline]
-            F --> M
-            L --> M
-            M --> N["Standardized Preprocessing:
-                5-fold Cross-validation
-                Bandpass Filter: 8-50Hz
-                Window Size: 100
-                90% Overlap
-                No Initial Normalization"]
-    </div>
-</body>
-</html>
+```mermaid
+flowchart TD
+    A[Initial Experiments] --> B{K-fold Validation}
+    B -->|Without| C[No K-fold]
+    B -->|With| D[5-fold Cross-validation]
+    C --> E[Poor Generalization]
+    D --> F[Better Model Stability]
+    G[Data Processing Tests] --> H{Window Overlap}
+    H -->|Without| I[No Overlap]
+    H -->|With| J[90% Overlap]
+    I --> K[Limited Temporal Info]
+    J --> L[Better Pattern Recognition]
+    M[Final Processing Pipeline]
+    F --> M
+    L --> M
+    M --> N["Standardized Preprocessing:
+        5-fold Cross-validation
+        Bandpass Filter: 8-50Hz
+        Window Size: 100
+        90% Overlap
+        No Initial Normalization"]
+```
