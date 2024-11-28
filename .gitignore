@@ -3,13 +3,16 @@
 *.gdf
 *.mat
 *.csv
-*.parquet
+dataset_bci_iv_2a/*.parquet
 BCICIV_2a_gdf
 true_labels
 
 # Results files:
 *.pth
 *.npy
+
+# Log files:
+*.log
 
 # Ignore pycache
 __pycache__
