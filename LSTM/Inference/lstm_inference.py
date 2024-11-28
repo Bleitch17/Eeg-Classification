@@ -10,7 +10,6 @@ from dataset_bci_iv_2a.dataset import BciIvDataset
 from device import get_system_device
 from LSTM.Model.lstm import LSTM
 from sklearn.metrics import precision_score, f1_score, confusion_matrix
-from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
 
