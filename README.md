@@ -25,8 +25,8 @@
   - [3.4 Results Visualization](#34-results-visualization)
 
 ## 1. Data Processing Rationale and Workflow
-[Due to the size and complexity of the problem, we will focus on the BCI Competition IV Dataset 2a Subject1= 1's data for this project.
-As a result of careful experiments, we choose to use 5-fold cross-validation with no normalization in preprocessing (we did normalization in complex models), bandpass 8 - 50Hz, window size 100, and window overlap 90.](https://archive.ics.uci.edu/dataset/533/eeg+database)
+Due to the size and complexity of the problem, we will focus on the (BCI Competition IV Dataset 2a)(https://archive.ics.uci.edu/dataset/533/eeg+database) Subject 1's data for this project.
+As a result of careful experiments, we choose to use 5-fold cross-validation with no normalization in preprocessing (we did normalization in complex models), bandpass 8 - 50Hz, window size 100, and window overlap 90.
 
 ### 1.1 Dataset Overview and Challenges
 
