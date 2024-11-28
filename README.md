@@ -156,7 +156,7 @@ Key findings from baseline models:
   <img src="./Z-ReadMe_Figures/img-5.png" width="400"/>
   <br>
   <em>Left: Training metrics demonstrating consistent performance
-  Right: Confusion matrix showing good discrimination between most classes</em>
+  Right: Confusion matrix showing slightly better discrimination between most classes than Naive Bayes</em>
 </div>
 
 ### 2.1  *Key Part*: Model Architectures for LSTM and normal + deeper learning CNNs
