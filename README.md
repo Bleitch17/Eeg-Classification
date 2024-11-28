@@ -23,13 +23,15 @@
   - [3.3 Usage Instructions](#33-usage-instructions)
   - [3.4 Results Visualization](#34-results-visualization)
 
+- [4. Reference and Appendix](#4-reference-and-appendix)
+
 ## 1. Data Processing Rationale and Workflow
 Due to the size and complexity of the problem, we will focus on the (BCI Competition IV Dataset 2a)(https://archive.ics.uci.edu/dataset/533/eeg+database) Subject 1's data for this project.
 As a result of careful experiments, we choose to use 5-fold cross-validation with no normalization in preprocessing (we did normalization in complex models), bandpass 8 - 50Hz, window size 100, and window overlap 90.
 
 ### 1.1 Dataset Overview and Challenges
 
-#### Overview
+#### Overview (The Work Flow Can be Found at the end of the README)
 The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects performing motor imagery tasks. Our analysis focuses on Subject 1's data:
 - 22 EEG channels
 - 5 motor imagery classes: Rest(0), Left Hand(1), Right Hand(2), Feet(3), Tongue(4)
@@ -105,8 +107,8 @@ Key findings from baseline models:
 - **Limitations**: Poor performance due to invalid independence assumption between EEG channels 
 
 <div align="center">
-  <img src="./Z-ReadMe_Figures/img-0.png" width="300"/>
-  <img src="./Z-ReadMe_Figures/image-1.png" width="300"/>
+  <img src="./Z-ReadMe_Figures/img-0.png" width="400"/>
+  <img src="./Z-ReadMe_Figures/image-1.png" width="400"/>
 </div>
 
 #### 2.0.2 Support Vector Machine (SVM)
@@ -125,8 +127,8 @@ Key findings from baseline models:
  - Best performing traditional classifier
 
 <div align="center">
-  <img src="./Z-ReadMe_Figures/img-2.png" width="300"/>
-  <img src="./Z-ReadMe_Figures/img-3.png" width="300"/>
+  <img src="./Z-ReadMe_Figures/img-2.png" width="400"/>
+  <img src="./Z-ReadMe_Figures/img-3.png" width="400"/>
 </div>
 
 #### 2.0.3 Random Forest
@@ -144,8 +146,8 @@ Key findings from baseline models:
   - Best performing traditional classifier when balancing training time and performance
 
 <div align="center">
-  <img src="./Z-ReadMe_Figures/img-4.png" width="300"/>
-  <img src="./Z-ReadMe_Figures/img-5.png" width="300"/>
+  <img src="./Z-ReadMe_Figures/img-4.png" width="400"/>
+  <img src="./Z-ReadMe_Figures/img-5.png" width="400"/>
 </div>
 
 ### 2.1  *Key Part*: Model Architectures for LSTM and normal + deeper learning CNNs
@@ -176,7 +178,7 @@ Bidirectional LSTM and CNN-ELU, CNN-ReLU are our first few simpler models with t
   - Slower convergence than CNNs
 
 <div align="center">
-  <img src="./Z-ReadMe_Figures/img-6.png" width="300"/>
+  <img src="./Z-ReadMe_Figures/img-6.png" width="600"/>
   <img src="./Z-ReadMe_Figures/img-7.png" width="300"/>
 </div>
 
@@ -226,7 +228,7 @@ Bidirectional LSTM and CNN-ELU, CNN-ReLU are our first few simpler models with t
 TODO: To be finished
 
 <div align="center">
-  <img src="./Z-ReadMe_Figures/img-10.png" width="300"/>
+  <img src="./Z-ReadMe_Figures/img-10.png" width="600"/>
   <img src="./Z-ReadMe_Figures/img-11.png" width="300"/>
 </div>
 
@@ -281,8 +283,8 @@ Inspired by several key papers in EEG classification and deep learning, we devel
   - Training time 14 hrs with cpu but really compact model size and high accuracy
 
 <div align="center">
-  <img src="./Z-ReadMe_Figures/img-12.png" width="300"/>
-  <img src="./Z-ReadMe_Figures/img-13.png" width="300"/>
+  <img src="./Z-ReadMe_Figures/img-12.png" width="800"/>
+  <img src="./Z-ReadMe_Figures/img-13.png" width="400"/>
   <br>
   <em>Left: Training curves showing stable convergence
   Right: Confusion matrix demonstrating strong class separation</em>
@@ -338,3 +340,55 @@ Inspired by several key papers in EEG classification and deep learning, we devel
 
 ### 3.4 Results Visualization
 [Content for this section...]
+
+## 4. Reference and Appendix
+1.Data Processing Decision Workflow:
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+    <style>
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            margin: 20px auto;
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="mermaid">
+        flowchart TD
+            A[Initial Experiments] --> B{K-fold Validation}
+            B -->|Without| C[No K-fold]
+            B -->|With| D[5-fold Cross-validation]
+            C --> E[Poor Generalization]
+            D --> F[Better Model Stability]
+            G[Data Processing Tests] --> H{Window Overlap}
+            H -->|Without| I[No Overlap]
+            H -->|With| J[90% Overlap]
+            I --> K[Limited Temporal Info]
+            J --> L[Better Pattern Recognition]
+            M[Final Processing Pipeline]
+            F --> M
+            L --> M
+            M --> N["Standardized Preprocessing:
+                5-fold Cross-validation
+                Bandpass Filter: 8-50Hz
+                Window Size: 100
+                90% Overlap
+                No Initial Normalization"]
+    </div>
+</body>
+</html>
