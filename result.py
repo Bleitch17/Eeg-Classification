@@ -33,8 +33,52 @@ def plot_train_test_split_label_distribution() -> None:
     plt.show()
 
 
+def visualize_confusion_matrix(conf_matrix: np.ndarray) -> None:
+    plt.figure(figsize=(8, 8))
+    plt.imshow(conf_matrix, interpolation='nearest', cmap=plt.get_cmap('Blues'))
+    plt.title('Confusion Matrix')
+    plt.colorbar()
+
+    num_classes = conf_matrix.shape[0]
+    plt.xticks(np.arange(num_classes))
+    plt.yticks(np.arange(num_classes))
+
+    for i in range(num_classes):
+        for j in range(num_classes):
+            plt.text(j, i, conf_matrix[i, j], ha='center', va='center')
+
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+    plt.show()
+
+
+def plot_train_loss_and_accuracy(history: dict) -> None:
+    plt.figure(figsize=(12, 4))
+
+    # Plot loss
+    plt.subplot(1, 2, 1)
+    plt.plot(history['train_loss'], label='Training Loss')
+    plt.axhline(y=history['test_loss'], color='orange', linestyle='--', label='Test Loss')
+    plt.title('Model Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    # Plot accuracy
+    plt.subplot(1, 2, 2)
+    plt.plot(history['train_acc'], label='Training Accuracy')
+    plt.axhline(y=history['test_acc'], color='orange', linestyle='--', label='Test Accuracy')
+    plt.title('Model Accuracy')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy (%)')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == "__main__":
-    plot_train_test_split_label_distribution()
+    # plot_train_test_split_label_distribution()
     
     parser = argparse.ArgumentParser(description="View model results saved in .npy files.")
     parser.add_argument("file", type=str, help="Path to .npy file.")
@@ -46,5 +90,12 @@ if __name__ == "__main__":
     print(history.keys())
 
     # Example - show the confusion matrix of the last epoch
-    print(history['conf_matrix'][-1])
-    
+    # print(history['conf_matrix'][-1])
+    # print(history['train_acc'])
+    # print(history['train_loss'])
+    print(history['precision'])
+    print(history['f1'])
+
+    # visualize_confusion_matrix(history['conf_matrix'][-1])
+    plot_train_loss_and_accuracy(history)
+

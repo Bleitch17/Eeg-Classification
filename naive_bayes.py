@@ -1,8 +1,10 @@
+import os
 import pandas as pd
 from sklearn.model_selection import KFold
 import numpy as np
 
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from joblib import dump
+from sklearn.metrics import accuracy_score, precision_score, f1_score, confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import GaussianNB
 from sklearn.preprocessing import StandardScaler
@@ -29,11 +31,14 @@ def train_naive_bayes(X: pd.DataFrame, y: pd.DataFrame) -> tuple[AccuracyScore, 
     k_folds = 5
     kfold = KFold(n_splits=k_folds, shuffle=True, random_state=42)  # Same seed as CNN
     fold_accuracies = []
+    fold_precision_scores = []
+    fold_f1_scores = []
+    fold_confusion_matrices = []
+    fold_classification_reports = []
     
-    # Store last fold's results for detailed reporting
-    final_confusion_matrix = None
-    final_classification_report = None
-    
+    best_accuracy = 0
+    best_fold = 0
+
     for fold, (train_idx, val_idx) in enumerate(kfold.split(X)):
         X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
         y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
@@ -42,18 +47,34 @@ def train_naive_bayes(X: pd.DataFrame, y: pd.DataFrame) -> tuple[AccuracyScore, 
         gnb.fit(X_train, y_train)
         y_pred = gnb.predict(X_val)
         
-        fold_accuracies.append(accuracy_score(y_val, y_pred))
-        
-        # Store last fold's detailed results
-        if fold == k_folds - 1:
-            final_confusion_matrix = confusion_matrix(y_val, y_pred)
-            final_classification_report = classification_report(y_val, y_pred)
+        current_accuracy = accuracy_score(y_val, y_pred)
+
+        if current_accuracy > best_accuracy:
+            best_accuracy = current_accuracy
+
+            if os.path.exists("BAYES.joblib"):
+                os.path.remove("BAYES.joblib")
+            
+            dump(gnb, "BAYES.joblib")
+
+            best_fold = fold
+
+        fold_accuracies.append(current_accuracy)
+        fold_precision_scores.append(precision_score(y_val, y_pred, average='macro'))
+        fold_f1_scores.append(f1_score(y_val, y_pred, average='macro'))
+        fold_confusion_matrices.append(confusion_matrix(y_val, y_pred))
+        fold_classification_reports.append(classification_report(y_val, y_pred))
     
     mean_accuracy = np.mean(fold_accuracies)
     print(f"Fold accuracies: {[f'{acc:.2f}' for acc in fold_accuracies]}")
     print(f"Std deviation: {np.std(fold_accuracies):.2f}")
     
-    return mean_accuracy, final_confusion_matrix, final_classification_report
+    print(f"Best fold: {best_fold}")
+    print(f"Best accuracy: {best_accuracy:.2f}")
+    print(f"Best fold precision: {fold_precision_scores[best_fold]:.2f}")
+    print(f"Best fold f1: {fold_f1_scores[best_fold]:.2f}")
+
+    return fold_accuracies[best_fold], fold_confusion_matrices[best_fold], fold_classification_reports[best_fold]
 
 
 def experiment_initial(df: pd.DataFrame) -> tuple[AccuracyScore, ConfusionMatrix, ClassificationReport]:

@@ -396,6 +396,9 @@ def data(subject_number: int, window_size: int, window_overlap: int, flatten: bo
     training_df["Recording"] += recording_offset
     raw_df = pd.concat([evaluation_df, training_df])
     
+    print("Raw DataFrame shape:", raw_df.shape)
+    exit()
+
     # TODO - move preprocessing to the window creation step, since want to apply preprocessing on a per-window basis
     # processed_df = EnhancedPreprocessing.apply_preprocessing(raw_df)
     
