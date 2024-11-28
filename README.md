@@ -16,7 +16,6 @@
     - [2.1.2 Basic CNN with ELU](#212-basic-cnn-with-elu)
     - [2.1.3 Deep CNN](#213-deep-cnn)
   - [2.2 Training Process](#22-training-process)
-  - [2.3 Performance Comparison](#23-performance-comparison)
 
 - [3. How to Read and Use our Repository](#3-how-to-read-and-use-our-repository)
   - [3.1 Repository Structure](#31-repository-structure)
@@ -37,8 +36,8 @@ The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects perfor
 - ~480,000 EEG samples after preprocessing
 - Data windowing: 100 samples/window with 90-sample overlap
 <div align="center">
-  <img src="./Dataset%20EDA/dataset%20distribution%20hotmap.png" width="400"/>
-  <img src="./Dataset%20EDA/dataset_balance.png" width="400"/>
+  <img src="./Dataset%20EDA/dataset%20distribution%20hotmap.png" width="250"/>
+  <img src="./Dataset%20EDA/dataset_balance.png" width="300"/>
 </div>
 
 #### Key Challenges
@@ -59,7 +58,7 @@ The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects perfor
    - Inconsistent signal patterns for same motor imagery tasks
 
 ### 1.2 Experiments and Data Processing Selections
-#### Rationale for Choices
+#### Discussion: Rationale for Choices
 These choices were made based on experimental results and represent an optimal balance between model performance and computational efficiency.
 (*Note: if interested please see Experimental Results folder)
 
@@ -87,40 +86,243 @@ These choices were made based on experimental results and represent an optimal b
    - Allows models to learn from raw signal patterns
 
 ## 2. Models & Evaluations (From Worst to Best)
-[Content for this section...]
+We improve our models from simple classifiers to deep learning CNNs. **Naive Bayes, SVM, and Random Forest => LSTM and CNN-ELU, CNN-ReLU => Deep CNN.**
 
 ### 2.0 Simple Classifiers
-[Content for this section...]
+Reason for using simple classifiers: Before implementing deep learning models, we established baselines using traditional machine learning approaches. Each classifier was evaluated using 5-fold cross-validation with standardized features get from A01_100_90_flattened.parquet in dataset_bci_iv_2a/
+
+Key findings from baseline models:
+1. Traditional classifiers struggle with the full 5-class problem
+2. Performance improves significantly for binary classification tasks
+3. SVM and Random Forest outperform Naive Bayes in terms of accuracy and F1-score
 
 #### 2.0.1 Naive Bayes
-[Content for this section...]
+- **Architecture**: Gaussian Naive Bayes classifier assuming feature independence with 5-fold cross-validation
+- **Performance**:
+  - Average Accuracy: 32.24%
+  - Average Precision: 31.35%
+  - Average F1-Score: 0.31
+- **Limitations**: Poor performance due to invalid independence assumption between EEG channels 
+
+<div align="center">
+  <img src="./Z-ReadMe_Figures/img-0.png" width="300"/>
+  <img src="./Z-ReadMe_Figures/image-1.png" width="300"/>
+</div>
 
 #### 2.0.2 Support Vector Machine (SVM)
-[Content for this section...]
+- **Architecture**: RBF kernel SVM with scaled features with 5-fold cross-validation
+- **Hyperparameters**:
+  - Kernel: RBF (captures non-linear relationships)
+  - C: 1.0 (regularization)
+  - Gamma: 'scale' (kernel coefficient)
+- **Performance**:
+  - Average Accuracy: 45.78%
+  - Average Precision: 48.11%
+  - Average F1-Score: 0.47
+  - More stable between folds compare to Naive Bayes
+- **Advantages**: 
+  -Better handles non-linear relationships in EEG data (94% in Single Channel Experiments)
+ - Best performing traditional classifier
+
+<div align="center">
+  <img src="./Z-ReadMe_Figures/img-2.png" width="300"/>
+  <img src="./Z-ReadMe_Figures/img-3.png" width="300"/>
+</div>
 
 #### 2.0.3 Random Forest
-[Content for this section...]
+- **Architecture**: Ensemble of 100 decision trees
+- **Hyperparameters**:
+  - n_estimators: 100
+  - max_features: 'auto'
+  - bootstrap: True
+- **Performance**:
+  - Average Accuracy: 71.2%
+  - Macro F1-Score: 0.70
+  - Most stable (std: 0.05)
+- **Advantages**: 
+  - Captures some complex feature interactions
+  - Best performing traditional classifier when balancing training time and performance
+
+<div align="center">
+  <img src="./Z-ReadMe_Figures/img-4.png" width="300"/>
+  <img src="./Z-ReadMe_Figures/img-5.png" width="300"/>
+</div>
 
 ### 2.1  *Key Part*: Model Architectures for LSTM and normal + deeper learning CNNs
-[Content for this section...]
+Bidirectional LSTM and CNN-ELU, CNN-ReLU are our first few simpler models with the CNN-ReLU the better performing one. Then we get inspired from papers to train a customized Deep CNN that outperforms all the previous models dramatically!
+
+**For Bonus, we used Adam and AdamW and momentum parameters tuning to avoid getting stuck in local minima. We chose them due to Faster convergence than SGD, Less sensitive to hyperparameter choices, and Better handling of sparse gradients in temporal data like EEG**
+
 
 #### 2.1.0 LSTM
-[Content for this section...]
+- **Architecture**:
+  ```
+  Input (batch_size, window_size, 22 channels)
+       ↓
+  Bidirectional LSTM (hidden_size=128)
+       ↓
+  Dropout (p=0.5)
+       ↓
+  Dense Layers (1000 → 200 → 5)
+  ```
+- **Design Rationale**:
+  - Optimizer: Adam to avoid getting stuck in local minima and for EEG data
+  - Bidirectional LSTM to capture temporal dependencies in both directions
+  - Large initial dense layer (1000) to learn complex feature combinations
+  - Aggressive dropout (0.5) to prevent overfitting
+- **Performance**:
+  - Average Accuracy: 64.2%
+  - High computational cost(Memory and Time and big model size)
+  - Slower convergence than CNNs
+
+<div align="center">
+  <img src="./Z-ReadMe_Figures/img-6.png" width="300"/>
+  <img src="./Z-ReadMe_Figures/img-7.png" width="300"/>
+</div>
+
 
 #### 2.1.1 Basic CNN with ReLU
-[Content for this section...]
+- **Architecture**:
+  ```
+  Input (batch_size, 1, 22 channels, window_size)
+       ↓
+  Conv2D (8 filters, kernel=(22,1)) + BatchNorm + ReLU
+       ↓
+  Conv2D (40 filters, kernel=(1,30)) + BatchNorm + ReLU
+       ↓
+  Dropout (0.2)
+       ↓
+  Dense Layers (400 → 200 → 5) with ReLU
+  ```
+- **Design Choices**:
+  - First conv layer: spatial filtering across channels
+  - Second conv layer: temporal filtering
+  - BatchNorm for stable training
+  - Moderate dropout (0.2, 0.3) for regularization (We got overfitting when dropout is too high)
+- **Hyperparameter Tuning**:
+  - Optimizer: Adam 
+  - Learning rate: 0.001 with ReduceLROnPlateau
+  - Batch size: 16 (best balance of speed/memory)
+  - Weight decay: 0.00005 for regularization
+- **Performance**:
+  - Best Fold(2) Validation Accuracy: 73.55%
+  TODO: To be finished
 
 #### 2.1.2 Basic CNN with ELU
-[Content for this section...]
+- **Architecture**: Identical to ReLU version but with ELU activation (ELU recommended by papers)
+- **Key Differences**:
+  - ELU activation for better gradient flow
+  - Self-normalizing properties reduce need for BatchNorm
+  - Smoother decision boundaries
+- **Hyperparameter Tuning**:
+  - Same configuration as ReLU version
+  - Early stopping patience: 7 epochs
+  - Learning rate scheduling: factor=0.1, patience=3
+- **Performance**:
+  - Best Fold(fold 1)Validation Accuracy: 66.51%
+  - Best Fold Precision: 68.3%
+  - Best Fold F1-Score: 0.67
+  - Final loss: 0.8119
+TODO: To be finished
+
+<div align="center">
+  <img src="./Z-ReadMe_Figures/img-10.png" width="300"/>
+  <img src="./Z-ReadMe_Figures/img-11.png" width="300"/>
+</div>
 
 #### 2.1.3 Deep CNN
-[Content for this section...]
+
+ 
+Inspired by several key papers in EEG classification and deep learning, we developed an enhanced CNN architecture combining proven techniques from:
+[Single-trial EEG classification of motor imagery using deep convolutional neural networks](https://www.sciencedirect.com/science/article/pii/S0030402616312980)
+ [EEGNet](https://arxiv.org/pdf/1611.08024)
+ [Deep Residual Learning for Image Recognition](https://arxiv.org/pdf/1512.03385)
+ [Squeeze-and-Excitation Networks](https://arxiv.org/pdf/1709.01507)
+
+- **Architecture**:
+  ```
+  Input (batch_size, 1, 22 channels, window_size)
+       ↓
+  Spatial Conv (kernel=(22,1)) + BatchNorm
+       ↓
+  Temporal Conv (kernel=(1,30)) + BatchNorm
+       ↓
+  SE-Block (Channel Attention)
+       ↓
+  Residual Blocks × 2
+       ↓
+  Global Average Pooling
+       ↓
+  Dense (5 classes)
+  ```
+
+- **Key Improvements**:
+  - Spatial-temporal feature extraction
+  - Channel attention mechanism
+  - Residual connections for deeper training
+  - Recalibration of channel attention with SE-Block
+  - Label smoothing (0.1) for better generalization
+
+- **Hyperparameter Optimization**: Tuned several times a compare trial can be found in the folder
+  - Optimizer: AdamW (better weight decay handling than Adam)
+  - Batch size: 32 with gradient accumulation (4 steps)
+  - Learning rate: OneCycleLR (max_lr=0.001)
+  - Weight decay: 0.01 with AdamW
+  - Early stopping patience: 20 epochs
+  - Gradient clipping: 0.5
+
+- **Performance**:
+  - Average 5-fold Accuracy: 87.45% ± 1.2%
+  - Best Fold (Fold 4)Validation Accuracy: 93.02%
+  - Best Fold Training Accuracy: 91.31%
+  - Best Fold Precision: 0.93
+  - Best Fold F1-Score: 0.93
+  - Final loss: 0.2912
+  - Training time 14 hrs with cpu but really compact model size and high accuracy
+
+<div align="center">
+  <img src="./Z-ReadMe_Figures/img-12.png" width="300"/>
+  <img src="./Z-ReadMe_Figures/img-13.png" width="300"/>
+  <br>
+  <em>Left: Training curves showing stable convergence
+  Right: Confusion matrix demonstrating strong class separation</em>
+</div>
 
 ### 2.2 Training Process
-[Content for this section...]
+#### Training Strategy
+- Progressive development from simple to complex models
+- 5-fold cross-validation for all experiments
+- Consistent data splits for fair comparison
 
-### 2.3 Performance Comparison
-[Content for this section...]
+#### Key Challenges & Solutions
+
+1. **Overfitting**:
+   - Challenge: Models quickly overfit due to EEG signal variability(especially in Experiments branch's CNN-v4)
+   - Solutions:
+     * Progressive dropout rates (0.2 → 0.5)
+     * Label smoothing adjustment in Deep CNN
+     * Early stopping with more patience
+
+2. **Training Stability**:
+   - Challenge: Unstable gradients and loss spikes
+   - Solutions:
+     * Gradient clipping at 0.5
+     * Batch normalization
+     * OneCycleLR scheduler for Deep CNN
+
+3. **Resource Constraints**:
+   - Challenge: Limited GPU availability
+   - Solutions:
+     * Gradient accumulation (4 steps)
+     * Efficient batch sizes (16-32, reduce batch size when necessary)
+     * Model checkpointing
+
+#### Best Practices
+- Regular validation monitoring
+- Save best model states
+- Track multiple metrics when training to detect overfitting/underfitting early(accuracy, F1, precision)
+- Slightly balance sampling for class imbalance
+
 
 ## 3. How to Read and Use our Repository
 [Content for this section...]
