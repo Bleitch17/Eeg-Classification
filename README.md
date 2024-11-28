@@ -199,7 +199,7 @@ Linear (200→5) + Sigmoid
   <img src="./Z-ReadMe_Figures/img-7.png" width="300"/>
   <br>
   <em>Left: Training curves showing gradual convergence
-  Right: Confusion matrix indicating moderate class separation</em>
+  Right: Confusion matrix indicating moderate class separation: Very poor ability to classify "Tongue" class</em>
 </div>
 
 
@@ -263,7 +263,7 @@ Linear (200→5)
   <img src="./Z-ReadMe_Figures/img-10.png" width="600"/>
   <img src="./Z-ReadMe_Figures/img-11.png" width="300"/>
   <br>
-  <em>Left: Training metrics showing faster convergence than LSTM
+  <em>Left: Training metrics showing slightly faster convergence than LSTM
   Right: Confusion matrix demonstrating improved class discrimination</em>
 </div>
 
