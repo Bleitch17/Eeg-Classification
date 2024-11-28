@@ -317,12 +317,12 @@ Linear(128→64) → ELU → Dropout(0.5) → Linear(64→5)
   - Gradient clipping: 0.5
 
 - **Performance**:
-  - Average 5-fold Accuracy: 87.45% ± 1.2%
+  - Average 5-fold Accuracy: 92.06%
   - Best Fold (Fold 4)Validation Accuracy: 93.02%
   - Best Fold Training Accuracy: 91.31%
   - Best Fold Precision: 0.93
   - Best Fold F1-Score: 0.93
-  - Final loss: 0.2912
+  - Final Validation Loss: 0.4374
   - Training time 14 hrs with cpu but really compact model size and high accuracy
 
 <div align="center">
