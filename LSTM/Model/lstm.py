@@ -1,6 +1,3 @@
-"https://drive.google.com/file/d/1zr5udbQf822q2oCuTfnLvphIC0-toOtd/view?usp=drive_link
-"The model is trained and saved in the link above." 
-
 import logging
 import os
 import pandas as pd

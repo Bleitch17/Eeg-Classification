@@ -7,10 +7,6 @@
 BCICIV_2a_gdf
 true_labels
 
-# Results files:
-*.pth
-*.npy
-
 # Log files:
 *.log
 
