@@ -144,9 +144,10 @@ Key findings from baseline models:
   - max_features: 'auto'
   - bootstrap: True
 - **Performance**:
-  - Average Accuracy: 71.2%
-  - Macro F1-Score: 0.70
-  - Most stable (std: 0.05)
+  - Average Accuracy: 39.36%
+  - Average Precision: 40.89%
+  - Macro F1-Score: 0.41
+  - Not that stable (>0.7%)
 - **Advantages**: 
   - Captures some complex feature interactions
   - Best performing traditional classifier when balancing training time and performance
@@ -190,7 +191,9 @@ Linear (200→5) + Sigmoid
   - Large initial dense layer (1000) to learn complex feature combinations
   - Aggressive dropout (0.5) to prevent overfitting
 - **Performance**:
-  - Accuracy: 64.2%
+  - Accuracy: 60.1%
+  - Precision: 0.55
+  - F1-Score: 0.55
   - High computational cost(Memory and Time and big model size)
   - Slower convergence than CNNs
 
