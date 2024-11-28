@@ -56,8 +56,10 @@ The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects perfor
    - Mental states vary between recordings
    - Inconsistent signal patterns for same motor imagery tasks
 
-### 1.2 Experiments and Data Processing Selection
+### 1.2 Experiments and Data Processing Selections
 #### Rationale for Choices
+These choices were made based on experimental results and represent an optimal balance between model performance and computational efficiency.
+(*Note: if interested please see Experimental Results folder)
 
 1. **5-fold Cross-validation**:
    - Provides robust model evaluation
@@ -81,8 +83,6 @@ The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects perfor
    - Preserves original signal characteristics
    - Normalization performed within model architectures
    - Allows models to learn from raw signal patterns
-
-These choices were made based on experimental results and represent an optimal balance between model performance and computational efficiency.
 
 ## 2. Models & Evaluations (From Worst to Best)
 [Content for this section...]
