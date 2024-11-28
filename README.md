@@ -10,7 +10,7 @@
     - [2.0.1 Naive Bayes](#201-naive-bayes)
     - [2.0.2 Support Vector Machine (SVM)](#202-support-vector-machine-svm)
     - [2.0.3 Random Forest](#203-random-forest)
-  - [2.1 *Key Part*:Model Architectures for LSTM and normal + deeper learning CNNs](#21-model-architectures)
+  - [2.1 *Key Part*: Model Architectures for LSTM and normal + deeper learning CNNs](#21-model-architectures)
     - [2.1.0 LSTM](#210-lstm)
     - [2.1.1 Basic CNN with ReLU](#211-basic-cnn-with-relu)
     - [2.1.2 Basic CNN with ELU](#212-basic-cnn-with-elu)
