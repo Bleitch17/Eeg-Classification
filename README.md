@@ -20,8 +20,8 @@
 - [3. How to Read and Use our Repository](#3-how-to-read-and-use-our-repository)
   - [3.1 Repository Structure](#31-repository-structure)
   - [3.2 Installation Guide](#32-installation-guide)
-  - [3.3 Usage Instructions](#33-usage-instructions)
-  - [3.4 Results Visualization](#34-results-visualization)
+  - [3.3 Runnning Inference Scripts](#33-running-inference-scripts)
+  - [3.4 Usage Instructions](#34-usage-instructions)
 
 - [4. Data Work Flow and Appendix](#4-reference-and-appendix)
 
@@ -38,8 +38,8 @@ The BCI Competition IV Dataset 2a contains EEG recordings from 9 subjects perfor
 - ~480,000 EEG samples after preprocessing
 - Data windowing: 100 samples/window with 90-sample overlap
 <div align="center">
-  <img src="./Dataset%20EDA/dataset%20distribution%20hotmap.png" width="400"/>
-  <img src="./Dataset%20EDA/dataset_balance.png" width="400"/>
+  <img src="./Z-ReadMe_Figures/dataset_distribution_hotmap.png" width="400"/>
+  <img src="./Z-ReadMe_Figures/dataset_balance.png" width="400"/>
 </div>
 
 #### Key Challenges
@@ -392,24 +392,24 @@ Here is how to browse our repository:
 ```
 .
 ├── dataset_bci_iv_2a/  # everything about dataset
-├── Dataset_EDA/                                # Dataset analysis
 
 ```
 **2. We have our directory with model's training and plotting codes, trained saved model in .pth (with relevant .npy for fold  histories if there are recorded), and our plotted fancy graphs for more details aside from report and slides. **
 ```
 .
-├── Best_DeepCNN_Better_Code+Model+Eval_Plots/  # Best performing model - the deeper learning CNN
-├── CNN w ELU Code + Model + Eval Plots/        # Basic CNN with ELU as activation functions
-├── CNN w ReLU Code + Model + Eval Plots/       # Basic CNN with ReLU as activation functions
-├── LSTM_Code+Model+Eval_Plots/                 # LSTM (We use test and split finally due to its computation complexity)
-├── Naive Bayes Code + Eval Plots/              # For Naive Bayes
-├── Random Forest Code + Eval Plots/            # For Random Forest
-├── SVM Code + Eval Results/                    # For SVM
-└── ENV.yml                                     # Environment configuration
+├── DeepCNN/      # Best performing model - the deeper learning CNN
+├── CNN_ELU/      # Basic CNN with ELU as activation functions
+├── CNN_RELU/     # Basic CNN with ReLU as activation functions
+├── LSTM/         # LSTM network
+├── NaiveBayes/   # For Naive Bayes
+├── RandomForest/ # For Random Forest
+├── SVM/          # For SVM
+├── ENV.yml       # Environment configuration
+└── device.py     # Common code for detecting the current device using PyTorch
 ```
 The other directory starting with "Z-" are unimportant as only for documentation facilitation.
 
-3. We have some branches of our experiment and testing history for without overlaps and without k-fold cross validation which can be found in branch Experiments.
+### 3.2 Installation Guide
 
 1. **Install Conda**
 ```bash
@@ -425,6 +425,9 @@ conda config --set auto_activate_base False
 # Create and activate environment
 conda env create -n eeg-classification --file ENV.yml
 conda activate eeg-classification
+
+# Install PyTorch: https://pytorch.org/get-started/locally/
+pip3 install torch torchvision torchaudio
 ```
 
 3. **Install GNU Octave** (for .gdf file processing)
@@ -435,7 +438,33 @@ pkg install -forge biosig
 pkg load biosig
 ```
 
-### 3.3 Usage Instructions
+### 3.3 Running Inference Scripts
+The `NaiveBayes`, `LSTM`, and `DeepCNN` directories contain inference scripts that may be run to reproduce the results seen in the report. Unfortunately, the model states for `CNN_ELU` and `CNN_RELU` were lost due to a bug, so there are no inference scripts for those models.
+
+> NOTE - The inference scripts require manual download of data from this [Google Drive Folder](https://drive.google.com/drive/folders/1zoJrLGljjhZXrgfG6OspXZZ7gZ3NFLOL?usp=sharing), since GitHub does not allow files over 100Mb to be stored in the repo. The inference scripts will explicitly log which files need to be downloaded, and where they should be placed if run without the proper data.
+
+For example, to run the `DeepCNN` inference script:
+```
+# cd into the Inference directory:
+cd DeepCNN/Inference
+
+# Run the script:
+python deep_cnn_inference.py
+
+# Excpected output:
+Test Loss: 0.21638171976949028
+Test Accuracy: 93.02352667132541
+Precision: 0.9347463037539514
+F1 Score: 0.9323278502654068
+Confusion Matrix:
+[[1260    8   11    3    6]
+ [  14 1818   62    1    2]
+ [   7   64 1738    9    4]
+ [  12   79   25 1635   17]
+ [  21  103   40  111 1536]]
+```
+
+### 3.4 Usage Instructions
 1. **Data Processing**
 ```
 # Generate processed dataset

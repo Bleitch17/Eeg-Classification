@@ -92,4 +92,4 @@ if __name__ == "__main__":
     print(f"Test Accuracy: {test_accuracy}")
     print(f"Precision: {precision}")
     print(f"F1 Score: {f1}")
-    print(f"Confusion Matrix: {conf_matrix}")
+    print(f"Confusion Matrix:\n{conf_matrix}")
